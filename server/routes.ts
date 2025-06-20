@@ -5,7 +5,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { 
   insertUserSchema, loginSchema, insertCourseSchema, 
-  insertScheduleSchema, insertBuildingSchema, insertRoomSchema 
+  insertScheduleSchema, insertBuildingSchema, insertRoomSchema,
+  insertFloorSchema
 } from "@shared/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "campus-buddy-secret-key";
@@ -160,6 +161,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Floor routes
+  app.get("/api/buildings/:id/floors", async (req, res) => {
+    try {
+      const buildingId = parseInt(req.params.id);
+      const floors = await storage.getFloorsByBuilding(buildingId);
+      res.json(floors);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/floors/:id", async (req, res) => {
+    try {
+      const floorId = parseInt(req.params.id);
+      const floor = await storage.getFloor(floorId);
+      if (!floor) {
+        return res.status(404).json({ message: "Floor not found" });
+      }
+      res.json(floor);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/floors", authenticateToken, async (req, res) => {
+    try {
+      // Check if user is admin
+      const user = await storage.getUser(req.user.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const floorData = insertFloorSchema.parse(req.body);
+      const floor = await storage.createFloor(floorData);
+      res.json(floor);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/floors/:id", authenticateToken, async (req, res) => {
+    try {
+      // Check if user is admin
+      const user = await storage.getUser(req.user.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const floorId = parseInt(req.params.id);
+      const floorData = insertFloorSchema.partial().parse(req.body);
+      const floor = await storage.updateFloor(floorId, floorData);
+      
+      if (!floor) {
+        return res.status(404).json({ message: "Floor not found" });
+      }
+      
+      res.json(floor);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/floors/:id", authenticateToken, async (req, res) => {
+    try {
+      // Check if user is admin
+      const user = await storage.getUser(req.user.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const floorId = parseInt(req.params.id);
+      const deleted = await storage.deleteFloor(floorId);
+      
+      if (deleted) {
+        res.json({ message: "Floor deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Floor not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Courses routes
   app.get("/api/courses", authenticateToken, async (req, res) => {
     try {
@@ -281,6 +365,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(404).json({ message: "Schedule not found" });
       }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Pathfinding route
+  app.post("/api/floors/:id/pathfinding", async (req, res) => {
+    try {
+      const floorId = parseInt(req.params.id);
+      const { startNode, endNode } = req.body;
+      
+      const floor = await storage.getFloor(floorId);
+      if (!floor) {
+        return res.status(404).json({ message: "Floor not found" });
+      }
+
+      const { createPathfindingService } = await import("./pathfinding");
+      const pathfinder = createPathfindingService(floor);
+      const result = pathfinder.findPath(startNode, endNode);
+      
+      if (!result) {
+        return res.status(404).json({ message: "No path found" });
+      }
+      
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

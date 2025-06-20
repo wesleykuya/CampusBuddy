@@ -1,11 +1,11 @@
 
 import { db } from "./db";
-import { users, buildings, rooms, courses, schedules, reminders } from "@shared/schema";
+import { users, buildings, rooms, courses, schedules, reminders, floors } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import type { 
   User, InsertUser, Building, InsertBuilding, Room, InsertRoom,
   Course, InsertCourse, CourseWithSchedules, Schedule, InsertSchedule, 
-  ScheduleWithDetails, Reminder, InsertReminder 
+  ScheduleWithDetails, Reminder, InsertReminder, Floor, InsertFloor
 } from "@shared/schema";
 
 export interface IStorage {
@@ -44,6 +44,13 @@ export interface IStorage {
   getRemindersByUser(userId: number): Promise<Reminder[]>;
   createReminder(reminder: InsertReminder): Promise<Reminder>;
   updateReminder(id: number, reminder: Partial<InsertReminder>): Promise<Reminder | undefined>;
+  
+  // Floor methods
+  getFloorsByBuilding(buildingId: number): Promise<Floor[]>;
+  getFloor(id: number): Promise<Floor | undefined>;
+  createFloor(floor: InsertFloor): Promise<Floor>;
+  updateFloor(id: number, floor: Partial<InsertFloor>): Promise<Floor | undefined>;
+  deleteFloor(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -141,7 +148,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCourse(id: number): Promise<boolean> {
     const result = await db.delete(courses).where(eq(courses.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getSchedulesByUser(userId: number): Promise<ScheduleWithDetails[]> {
@@ -196,7 +203,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSchedule(id: number): Promise<boolean> {
     const result = await db.delete(schedules).where(eq(schedules.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getRemindersByUser(userId: number): Promise<Reminder[]> {
@@ -214,6 +221,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reminders.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async getFloorsByBuilding(buildingId: number): Promise<Floor[]> {
+    return await db.select().from(floors).where(eq(floors.buildingId, buildingId));
+  }
+
+  async getFloor(id: number): Promise<Floor | undefined> {
+    const [floor] = await db.select().from(floors).where(eq(floors.id, id));
+    return floor || undefined;
+  }
+
+  async createFloor(floor: InsertFloor): Promise<Floor> {
+    const [newFloor] = await db.insert(floors).values(floor).returning();
+    return newFloor;
+  }
+
+  async updateFloor(id: number, floor: Partial<InsertFloor>): Promise<Floor | undefined> {
+    const [updated] = await db.update(floors)
+      .set(floor)
+      .where(eq(floors.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteFloor(id: number): Promise<boolean> {
+    const result = await db.delete(floors).where(eq(floors.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

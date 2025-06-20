@@ -25,6 +25,19 @@ export const buildings = pgTable("buildings", {
   isActive: boolean("is_active").default(true),
 });
 
+export const floors = pgTable("floors", {
+  id: serial("id").primaryKey(),
+  buildingId: integer("building_id").references(() => buildings.id).notNull(),
+  level: integer("level").notNull(),
+  name: text("name"), // e.g., "Ground Floor", "1st Floor"
+  schematicImage: text("schematic_image"), // Base64 or URL
+  nodes: jsonb("nodes").default([]), // {id, type, x, y, connections[], label}
+  paths: jsonb("paths").default([]), // {id, startNode, endNode, pathType, distance}
+  canvasData: jsonb("canvas_data"), // Fabric.js canvas state
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
   buildingId: integer("building_id").references(() => buildings.id).notNull(),
@@ -69,6 +82,14 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const buildingsRelations = relations(buildings, ({ many }) => ({
   rooms: many(rooms),
+  floors: many(floors),
+}));
+
+export const floorsRelations = relations(floors, ({ one }) => ({
+  building: one(buildings, {
+    fields: [floors.buildingId],
+    references: [buildings.id],
+  }),
 }));
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({
@@ -138,6 +159,12 @@ export const insertReminderSchema = createInsertSchema(reminders).omit({
   id: true,
 });
 
+export const insertFloorSchema = createInsertSchema(floors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Login schema
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -157,6 +184,8 @@ export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type Schedule = typeof schedules.$inferSelect;
 export type InsertReminder = z.infer<typeof insertReminderSchema>;
 export type Reminder = typeof reminders.$inferSelect;
+export type InsertFloor = z.infer<typeof insertFloorSchema>;
+export type Floor = typeof floors.$inferSelect;
 export type LoginCredentials = z.infer<typeof loginSchema>;
 
 // Extended types with relations

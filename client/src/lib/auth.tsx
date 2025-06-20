@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem("token");
     if (token) {
       // Verify token with server
-      fetch("/api/auth/me", {
+      fetch("/api/auth/user", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -69,6 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string;
     password: string;
     fullName: string;
+    role?: string;
+    department?: string;
+    studentId?: string;
   }) => {
     const response = await apiRequest("POST", "/api/auth/register", userData);
     

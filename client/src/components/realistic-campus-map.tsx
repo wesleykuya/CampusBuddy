@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,206 +6,291 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Navigation, Building, Users, Calendar, Settings } from "lucide-react";
+import { MapPin, Navigation, Building, Users, Calendar, Settings, Shield, Edit, Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface MapNode {
   id: string;
-  type: 'building' | 'entrance' | 'junction' | 'landmark';
+  type: 'building' | 'entrance' | 'junction' | 'landmark' | 'parking' | 'amenity';
   x: number;
   y: number;
   label: string;
   buildingCode?: string;
   description?: string;
   connections: string[];
+  capacity?: number;
+  accessibility?: boolean;
 }
 
 interface MapPath {
   id: string;
   startNode: string;
   endNode: string;
-  type: 'walkway' | 'stairs' | 'elevator' | 'corridor';
+  type: 'walkway' | 'road' | 'pathway' | 'covered';
   distance: number;
   accessibility?: boolean;
+  travelTime?: number;
 }
 
 interface Building {
   id: string;
   name: string;
   code: string;
-  type: 'academic' | 'residential' | 'administrative' | 'recreational';
+  type: 'academic' | 'residential' | 'administrative' | 'recreational' | 'dining' | 'medical' | 'library';
   floors: number;
   capacity: number;
   departments: string[];
   coordinates: { x: number; y: number; width: number; height: number };
+  isAccessible: boolean;
+  openingHours?: string;
+  facilities?: string[];
 }
 
 export function RealisticCampusMap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { user } = useAuth();
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [pathfindingMode, setPathfindingMode] = useState(false);
   const [startLocation, setStartLocation] = useState<string>("");
   const [endLocation, setEndLocation] = useState<string>("");
   const [currentPath, setCurrentPath] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'overview' | 'detailed'>('overview');
+  const [isEditMode, setIsEditMode] = useState(false);
 
-  // Realistic university campus data
+  // Comprehensive university campus data - realistic diagrammatic layout
   const buildings: Building[] = [
     {
       id: "lib-001",
       name: "Central Library",
       code: "LIB",
-      type: "academic",
-      floors: 4,
-      capacity: 800,
-      departments: ["Library Sciences", "Study Spaces", "Archives"],
-      coordinates: { x: 300, y: 200, width: 120, height: 80 }
+      type: "library",
+      floors: 5,
+      capacity: 1200,
+      departments: ["Library Sciences", "Study Spaces", "Archives", "Digital Resources"],
+      coordinates: { x: 350, y: 180, width: 140, height: 100 },
+      isAccessible: true,
+      openingHours: "24/7",
+      facilities: ["WiFi", "Study Rooms", "Computer Lab", "Printing Services", "Café"]
     },
     {
       id: "sci-001",
-      name: "Science Building",
+      name: "Science & Technology Building",
       code: "SCI",
       type: "academic",
-      floors: 5,
-      capacity: 600,
-      departments: ["Physics", "Chemistry", "Biology", "Mathematics"],
-      coordinates: { x: 150, y: 120, width: 100, height: 90 }
+      floors: 6,
+      capacity: 800,
+      departments: ["Physics", "Chemistry", "Biology", "Mathematics", "Computer Science"],
+      coordinates: { x: 120, y: 100, width: 120, height: 110 },
+      isAccessible: true,
+      openingHours: "6:00 AM - 10:00 PM",
+      facilities: ["Laboratories", "Lecture Halls", "Research Centers"]
     },
     {
       id: "eng-001",
       name: "Engineering Complex",
       code: "ENG",
       type: "academic",
-      floors: 6,
+      floors: 7,
       capacity: 1000,
-      departments: ["Computer Science", "Electrical Engineering", "Mechanical Engineering"],
-      coordinates: { x: 480, y: 150, width: 140, height: 100 }
+      departments: ["Mechanical Engineering", "Electrical Engineering", "Civil Engineering", "Software Engineering"],
+      coordinates: { x: 520, y: 120, width: 160, height: 120 },
+      isAccessible: true,
+      openingHours: "6:00 AM - 11:00 PM",
+      facilities: ["Engineering Labs", "Workshop", "Design Studios", "Project Rooms"]
     },
     {
-      id: "stu-001",
-      name: "Student Union",
-      code: "SU",
+      id: "admin-001",
+      name: "Administration Building",
+      code: "ADM",
+      type: "administrative",
+      floors: 4,
+      capacity: 300,
+      departments: ["Admissions", "Registrar", "Financial Aid", "Student Services", "Chancellor's Office"],
+      coordinates: { x: 300, y: 50, width: 120, height: 80 },
+      isAccessible: true,
+      openingHours: "8:00 AM - 5:00 PM",
+      facilities: ["Reception", "Meeting Rooms", "Student Services Counter"]
+    },
+    {
+      id: "student-union",
+      name: "Student Union Building",
+      code: "SUB",
       type: "recreational",
       floors: 3,
-      capacity: 1200,
-      departments: ["Dining", "Recreation", "Student Services"],
-      coordinates: { x: 320, y: 350, width: 110, height: 70 }
+      capacity: 1500,
+      departments: ["Student Activities", "Recreation", "Student Government", "Clubs & Organizations"],
+      coordinates: { x: 350, y: 320, width: 140, height: 90 },
+      isAccessible: true,
+      openingHours: "6:00 AM - 12:00 AM",
+      facilities: ["Game Room", "Meeting Spaces", "Event Halls", "Lounge Areas"]
     },
     {
-      id: "res-001",
+      id: "dining-001",
+      name: "Main Dining Hall",
+      code: "DINE",
+      type: "dining",
+      floors: 2,
+      capacity: 800,
+      departments: ["Food Services", "Catering", "Nutrition Services"],
+      coordinates: { x: 180, y: 350, width: 120, height: 80 },
+      isAccessible: true,
+      openingHours: "6:00 AM - 10:00 PM",
+      facilities: ["Multiple Cuisines", "Grab & Go", "Dietary Options", "Outdoor Seating"]
+    },
+    {
+      id: "dorm-north",
       name: "North Residence Hall",
       code: "NRH",
       type: "residential",
       floors: 8,
-      capacity: 400,
-      departments: ["Housing", "Residential Life"],
-      coordinates: { x: 100, y: 300, width: 80, height: 120 }
+      capacity: 600,
+      departments: ["Housing Services", "Residential Life"],
+      coordinates: { x: 80, y: 250, width: 100, height: 140 },
+      isAccessible: true,
+      openingHours: "24/7",
+      facilities: ["Study Lounges", "Laundry", "Recreation Room", "Kitchenette"]
     },
     {
-      id: "adm-001",
-      name: "Administration Building",
-      code: "ADM",
-      type: "administrative",
-      floors: 3,
+      id: "dorm-south",
+      name: "South Residence Hall",
+      code: "SRH",
+      type: "residential",
+      floors: 10,
+      capacity: 800,
+      departments: ["Housing Services", "Residential Life"],
+      coordinates: { x: 520, y: 350, width: 120, height: 160 },
+      isAccessible: true,
+      openingHours: "24/7",
+      facilities: ["Study Lounges", "Laundry", "Recreation Room", "Kitchenette", "Fitness Room"]
+    },
+    {
+      id: "medical-001",
+      name: "Health & Wellness Center",
+      code: "MED",
+      type: "medical",
+      floors: 2,
       capacity: 200,
-      departments: ["Admissions", "Registrar", "Financial Aid"],
-      coordinates: { x: 450, y: 320, width: 90, height: 60 }
+      departments: ["Student Health", "Counseling Services", "Wellness Programs"],
+      coordinates: { x: 420, y: 280, width: 90, height: 60 },
+      isAccessible: true,
+      openingHours: "8:00 AM - 6:00 PM",
+      facilities: ["Clinic", "Pharmacy", "Counseling Rooms", "Wellness Center"]
     },
     {
-      id: "gym-001",
+      id: "sports-001",
       name: "Athletic Center",
       code: "GYM",
       type: "recreational",
-      floors: 2,
-      capacity: 800,
-      departments: ["Athletics", "Fitness", "Recreation"],
-      coordinates: { x: 200, y: 450, width: 130, height: 80 }
+      floors: 3,
+      capacity: 1000,
+      departments: ["Athletics", "Recreation", "Fitness", "Intramural Sports"],
+      coordinates: { x: 250, y: 480, width: 150, height: 100 },
+      isAccessible: true,
+      openingHours: "5:00 AM - 11:00 PM",
+      facilities: ["Gym", "Pool", "Courts", "Fitness Center", "Locker Rooms"]
     }
   ];
 
   const mapNodes: MapNode[] = [
     // Building entrances
-    { id: "lib-entrance", type: "entrance", x: 360, y: 240, label: "Library Main Entrance", buildingCode: "LIB", connections: ["central-plaza", "sci-walkway"] },
-    { id: "sci-entrance", type: "entrance", x: 200, y: 165, label: "Science Building Entrance", buildingCode: "SCI", connections: ["lib-entrance", "parking-north"] },
-    { id: "eng-entrance", type: "entrance", x: 550, y: 200, label: "Engineering Main Entrance", buildingCode: "ENG", connections: ["central-plaza", "east-gate"] },
-    { id: "su-entrance", type: "entrance", x: 375, y: 385, label: "Student Union Entrance", buildingCode: "SU", connections: ["central-plaza", "south-walkway"] },
-    { id: "res-entrance", type: "entrance", x: 140, y: 360, label: "North Residence Entrance", buildingCode: "NRH", connections: ["west-walkway", "dining-plaza"] },
-    { id: "adm-entrance", type: "entrance", x: 495, y: 350, label: "Administration Entrance", buildingCode: "ADM", connections: ["east-walkway", "visitor-parking"] },
-    { id: "gym-entrance", type: "entrance", x: 265, y: 490, label: "Athletic Center Entrance", buildingCode: "GYM", connections: ["south-walkway", "sports-complex"] },
-    
-    // Major junctions and plazas
-    { id: "central-plaza", type: "junction", x: 400, y: 280, label: "Central Plaza", connections: ["lib-entrance", "eng-entrance", "su-entrance", "fountain-area"] },
-    { id: "fountain-area", type: "landmark", x: 350, y: 300, label: "University Fountain", connections: ["central-plaza", "amphitheater"] },
-    { id: "amphitheater", type: "landmark", x: 380, y: 320, label: "Outdoor Amphitheater", connections: ["fountain-area", "su-entrance"] },
-    
-    // Campus gates and parking
-    { id: "main-gate", type: "entrance", x: 50, y: 250, label: "Main Campus Gate", connections: ["west-walkway", "visitor-center"] },
-    { id: "east-gate", type: "entrance", x: 650, y: 200, label: "East Campus Gate", connections: ["eng-entrance", "graduate-housing"] },
-    { id: "south-gate", type: "entrance", x: 350, y: 550, label: "South Campus Gate", connections: ["sports-complex", "south-parking"] },
-    
-    // Walkways and pathways
-    { id: "west-walkway", type: "junction", x: 120, y: 280, label: "West Campus Walkway", connections: ["main-gate", "res-entrance", "dining-plaza"] },
-    { id: "east-walkway", type: "junction", x: 520, y: 280, label: "East Campus Walkway", connections: ["eng-entrance", "adm-entrance", "graduate-housing"] },
-    { id: "south-walkway", type: "junction", x: 320, y: 430, label: "South Campus Walkway", connections: ["su-entrance", "gym-entrance", "dining-plaza"] },
-    { id: "sci-walkway", type: "junction", x: 250, y: 200, label: "Science Quad", connections: ["sci-entrance", "lib-entrance", "research-labs"] },
-    
-    // Specialized areas
-    { id: "dining-plaza", type: "junction", x: 200, y: 380, label: "Dining Plaza", connections: ["res-entrance", "west-walkway", "south-walkway"] },
-    { id: "sports-complex", type: "landmark", x: 280, y: 520, label: "Sports Complex", connections: ["gym-entrance", "south-gate", "athletic-fields"] },
-    { id: "research-labs", type: "building", x: 180, y: 80, label: "Research Laboratories", connections: ["sci-walkway", "graduate-center"] },
-    { id: "graduate-center", type: "building", x: 580, y: 120, label: "Graduate Student Center", connections: ["research-labs", "east-walkway"] },
-    { id: "visitor-center", type: "building", x: 80, y: 200, label: "Visitor Information Center", connections: ["main-gate", "parking-west"] },
-    
-    // Parking areas
-    { id: "parking-north", type: "junction", x: 150, y: 50, label: "North Parking", connections: ["sci-entrance", "research-labs"] },
-    { id: "parking-west", type: "junction", x: 50, y: 180, label: "West Parking", connections: ["visitor-center", "main-gate"] },
-    { id: "visitor-parking", type: "junction", x: 550, y: 350, label: "Visitor Parking", connections: ["adm-entrance", "east-walkway"] },
-    { id: "south-parking", type: "junction", x: 400, y: 520, label: "South Parking", connections: ["south-gate", "sports-complex"] },
-    { id: "graduate-housing", type: "building", x: 600, y: 250, label: "Graduate Housing", connections: ["east-gate", "east-walkway", "graduate-center"] },
-    { id: "athletic-fields", type: "building", x: 250, y: 550, label: "Athletic Fields", connections: ["sports-complex", "south-parking"] }
+    { id: "lib-main", type: "entrance", x: 420, y: 230, label: "Library Main Entrance", buildingCode: "LIB", connections: ["central-quad", "academic-walk"], accessibility: true },
+    { id: "sci-main", type: "entrance", x: 180, y: 155, label: "Science Building Entrance", buildingCode: "SCI", connections: ["north-quad", "research-path"], accessibility: true },
+    { id: "eng-main", type: "entrance", x: 600, y: 180, label: "Engineering Main Entrance", buildingCode: "ENG", connections: ["east-plaza", "tech-corridor"], accessibility: true },
+    { id: "admin-main", type: "entrance", x: 360, y: 90, label: "Administration Entrance", buildingCode: "ADM", connections: ["main-entrance", "visitor-path"], accessibility: true },
+    { id: "sub-main", type: "entrance", x: 420, y: 365, label: "Student Union Entrance", buildingCode: "SUB", connections: ["central-quad", "student-plaza"], accessibility: true },
+    { id: "dining-main", type: "entrance", x: 240, y: 390, label: "Dining Hall Entrance", buildingCode: "DINE", connections: ["west-walk", "student-plaza"], accessibility: true },
+    { id: "nrh-main", type: "entrance", x: 130, y: 320, label: "North Residence Entrance", buildingCode: "NRH", connections: ["west-walk", "residential-area"], accessibility: true },
+    { id: "srh-main", type: "entrance", x: 580, y: 430, label: "South Residence Entrance", buildingCode: "SRH", connections: ["east-residential", "south-plaza"], accessibility: true },
+    { id: "med-main", type: "entrance", x: 465, y: 310, label: "Health Center Entrance", buildingCode: "MED", connections: ["wellness-walk", "central-quad"], accessibility: true },
+    { id: "gym-main", type: "entrance", x: 325, y: 530, label: "Athletic Center Entrance", buildingCode: "GYM", connections: ["sports-complex", "recreation-path"], accessibility: true },
+
+    // Major campus areas and plazas
+    { id: "main-entrance", type: "landmark", x: 400, y: 30, label: "University Main Gate", connections: ["admin-main", "visitor-path", "ceremonial-drive"], accessibility: true },
+    { id: "central-quad", type: "junction", x: 420, y: 280, label: "Central Quadrangle", connections: ["lib-main", "sub-main", "med-main", "academic-walk"], accessibility: true },
+    { id: "north-quad", type: "junction", x: 240, y: 160, label: "North Academic Quad", connections: ["sci-main", "research-path", "academic-walk"], accessibility: true },
+    { id: "east-plaza", type: "junction", x: 560, y: 220, label: "East Plaza", connections: ["eng-main", "tech-corridor", "east-residential"], accessibility: true },
+    { id: "student-plaza", type: "junction", x: 330, y: 400, label: "Student Activity Plaza", connections: ["sub-main", "dining-main", "recreation-path"], accessibility: true },
+    { id: "west-walk", type: "junction", x: 200, y: 300, label: "West Campus Walk", connections: ["dining-main", "nrh-main", "residential-area"], accessibility: true },
+
+    // Specialized pathways
+    { id: "academic-walk", type: "junction", x: 350, y: 220, label: "Academic Promenade", connections: ["lib-main", "central-quad", "north-quad"], accessibility: true },
+    { id: "tech-corridor", type: "junction", x: 600, y: 250, label: "Technology Corridor", connections: ["eng-main", "east-plaza", "innovation-hub"], accessibility: true },
+    { id: "wellness-walk", type: "junction", x: 450, y: 340, label: "Wellness Walkway", connections: ["med-main", "student-plaza", "recreation-path"], accessibility: true },
+    { id: "residential-area", type: "junction", x: 150, y: 350, label: "Residential Commons", connections: ["nrh-main", "west-walk", "community-center"], accessibility: true },
+    { id: "east-residential", type: "junction", x: 580, y: 300, label: "East Residential Area", connections: ["srh-main", "east-plaza", "south-plaza"], accessibility: true },
+
+    // Parking and transportation
+    { id: "north-parking", type: "parking", x: 150, y: 80, label: "North Parking Lot A", connections: ["visitor-path", "north-quad"], capacity: 200, accessibility: true },
+    { id: "east-parking", type: "parking", x: 650, y: 180, label: "East Parking Garage", connections: ["tech-corridor", "visitor-entrance"], capacity: 500, accessibility: true },
+    { id: "south-parking", type: "parking", x: 400, y: 550, label: "South Parking Lot B", connections: ["sports-complex", "recreation-path"], capacity: 300, accessibility: true },
+    { id: "west-parking", type: "parking", x: 50, y: 300, label: "West Parking Lot C", connections: ["residential-area", "west-entrance"], capacity: 250, accessibility: true },
+
+    // Campus amenities
+    { id: "innovation-hub", type: "amenity", x: 680, y: 280, label: "Innovation & Startup Hub", connections: ["tech-corridor", "research-path"], accessibility: true },
+    { id: "community-center", type: "amenity", x: 120, y: 400, label: "Community Center", connections: ["residential-area", "west-walk"], accessibility: true },
+    { id: "outdoor-theater", type: "amenity", x: 300, y: 250, label: "Outdoor Amphitheater", connections: ["central-quad", "academic-walk"], accessibility: true },
+    { id: "botanical-garden", type: "amenity", x: 500, y: 350, label: "Botanical Garden", connections: ["wellness-walk", "east-residential"], accessibility: true },
+    { id: "sports-complex", type: "amenity", x: 350, y: 500, label: "Sports Complex", connections: ["gym-main", "south-parking", "recreation-path"], accessibility: true },
+
+    // Additional pathways
+    { id: "ceremonial-drive", type: "junction", x: 360, y: 120, label: "Ceremonial Drive", connections: ["main-entrance", "admin-main", "visitor-path"], accessibility: true },
+    { id: "visitor-path", type: "junction", x: 280, y: 90, label: "Visitor Pathway", connections: ["main-entrance", "admin-main", "north-parking"], accessibility: true },
+    { id: "research-path", type: "junction", x: 200, y: 200, label: "Research Corridor", connections: ["sci-main", "north-quad", "innovation-hub"], accessibility: true },
+    { id: "recreation-path", type: "junction", x: 300, y: 450, label: "Recreation Path", connections: ["student-plaza", "gym-main", "sports-complex"], accessibility: true },
+    { id: "south-plaza", type: "junction", x: 500, y: 480, label: "South Plaza", connections: ["srh-main", "east-residential", "botanical-garden"], accessibility: true }
   ];
 
   const mapPaths: MapPath[] = [
-    // Main walkways
-    { id: "path-1", startNode: "lib-entrance", endNode: "central-plaza", type: "walkway", distance: 120, accessibility: true },
-    { id: "path-2", startNode: "central-plaza", endNode: "eng-entrance", type: "walkway", distance: 150, accessibility: true },
-    { id: "path-3", startNode: "central-plaza", endNode: "su-entrance", type: "walkway", distance: 105, accessibility: true },
-    { id: "path-4", startNode: "sci-entrance", endNode: "lib-entrance", type: "walkway", distance: 160, accessibility: true },
-    { id: "path-5", startNode: "res-entrance", endNode: "west-walkway", type: "walkway", distance: 80, accessibility: true },
-    { id: "path-6", startNode: "west-walkway", endNode: "main-gate", type: "walkway", distance: 70, accessibility: true },
-    { id: "path-7", startNode: "east-walkway", endNode: "eng-entrance", type: "walkway", distance: 90, accessibility: true },
-    { id: "path-8", startNode: "adm-entrance", endNode: "east-walkway", type: "walkway", distance: 75, accessibility: true },
-    { id: "path-9", startNode: "su-entrance", endNode: "south-walkway", type: "walkway", distance: 95, accessibility: true },
-    { id: "path-10", startNode: "gym-entrance", endNode: "south-walkway", type: "walkway", distance: 110, accessibility: true },
-    
-    // Secondary connections
-    { id: "path-11", startNode: "fountain-area", endNode: "central-plaza", type: "walkway", distance: 50, accessibility: true },
-    { id: "path-12", startNode: "amphitheater", endNode: "fountain-area", type: "walkway", distance: 40, accessibility: true },
-    { id: "path-13", startNode: "dining-plaza", endNode: "res-entrance", type: "walkway", distance: 60, accessibility: true },
-    { id: "path-14", startNode: "dining-plaza", endNode: "south-walkway", type: "walkway", distance: 120, accessibility: true },
-    { id: "path-15", startNode: "sci-walkway", endNode: "sci-entrance", type: "walkway", distance: 50, accessibility: true },
-    { id: "path-16", startNode: "sci-walkway", endNode: "research-labs", type: "walkway", distance: 130, accessibility: true },
-    { id: "path-17", startNode: "research-labs", endNode: "graduate-center", type: "walkway", distance: 400, accessibility: true },
-    { id: "path-18", startNode: "graduate-center", endNode: "east-walkway", type: "walkway", distance: 160, accessibility: true },
-    
-    // Campus perimeter and gates
-    { id: "path-19", startNode: "east-gate", endNode: "eng-entrance", type: "walkway", distance: 100, accessibility: true },
-    { id: "path-20", startNode: "east-gate", endNode: "graduate-housing", type: "walkway", distance: 80, accessibility: true },
-    { id: "path-21", startNode: "south-gate", endNode: "sports-complex", type: "walkway", distance: 70, accessibility: true },
-    { id: "path-22", startNode: "sports-complex", endNode: "gym-entrance", type: "walkway", distance: 45, accessibility: true },
-    { id: "path-23", startNode: "visitor-center", endNode: "main-gate", type: "walkway", distance: 50, accessibility: true },
-    { id: "path-24", startNode: "visitor-center", endNode: "parking-west", type: "walkway", distance: 40, accessibility: true },
-    
+    // Primary campus circulation
+    { id: "path-1", startNode: "main-entrance", endNode: "ceremonial-drive", type: "road", distance: 90, accessibility: true, travelTime: 2 },
+    { id: "path-2", startNode: "ceremonial-drive", endNode: "admin-main", type: "walkway", distance: 80, accessibility: true, travelTime: 1 },
+    { id: "path-3", startNode: "central-quad", endNode: "lib-main", type: "walkway", distance: 100, accessibility: true, travelTime: 2 },
+    { id: "path-4", startNode: "central-quad", endNode: "academic-walk", type: "walkway", distance: 70, accessibility: true, travelTime: 1 },
+    { id: "path-5", startNode: "academic-walk", endNode: "north-quad", type: "covered", distance: 110, accessibility: true, travelTime: 2 },
+    { id: "path-6", startNode: "north-quad", endNode: "sci-main", type: "walkway", distance: 60, accessibility: true, travelTime: 1 },
+    { id: "path-7", startNode: "east-plaza", endNode: "eng-main", type: "walkway", distance: 90, accessibility: true, travelTime: 2 },
+    { id: "path-8", startNode: "tech-corridor", endNode: "east-plaza", type: "walkway", distance: 50, accessibility: true, travelTime: 1 },
+    { id: "path-9", startNode: "student-plaza", endNode: "sub-main", type: "walkway", distance: 90, accessibility: true, travelTime: 2 },
+    { id: "path-10", startNode: "student-plaza", endNode: "dining-main", type: "walkway", distance: 110, accessibility: true, travelTime: 2 },
+
+    // Residential connections
+    { id: "path-11", startNode: "west-walk", endNode: "nrh-main", type: "walkway", distance: 80, accessibility: true, travelTime: 1 },
+    { id: "path-12", startNode: "east-residential", endNode: "srh-main", type: "walkway", distance: 60, accessibility: true, travelTime: 1 },
+    { id: "path-13", startNode: "residential-area", endNode: "west-walk", type: "pathway", distance: 70, accessibility: true, travelTime: 1 },
+
+    // Medical and wellness
+    { id: "path-14", startNode: "wellness-walk", endNode: "med-main", type: "walkway", distance: 40, accessibility: true, travelTime: 1 },
+    { id: "path-15", startNode: "central-quad", endNode: "wellness-walk", type: "walkway", distance: 80, accessibility: true, travelTime: 2 },
+
+    // Recreation and sports
+    { id: "path-16", startNode: "recreation-path", endNode: "gym-main", type: "walkway", distance: 70, accessibility: true, travelTime: 1 },
+    { id: "path-17", startNode: "sports-complex", endNode: "recreation-path", type: "walkway", distance: 50, accessibility: true, travelTime: 1 },
+
     // Parking connections
-    { id: "path-25", startNode: "parking-north", endNode: "sci-entrance", type: "walkway", distance: 120, accessibility: true },
-    { id: "path-26", startNode: "visitor-parking", endNode: "adm-entrance", type: "walkway", distance: 55, accessibility: true },
-    { id: "path-27", startNode: "south-parking", endNode: "sports-complex", type: "walkway", distance: 120, accessibility: true },
-    { id: "path-28", startNode: "graduate-housing", endNode: "graduate-center", type: "walkway", distance: 130, accessibility: true },
-    { id: "path-29", startNode: "athletic-fields", endNode: "sports-complex", type: "walkway", distance: 80, accessibility: true }
+    { id: "path-18", startNode: "north-parking", endNode: "visitor-path", type: "walkway", distance: 130, accessibility: true, travelTime: 3 },
+    { id: "path-19", startNode: "east-parking", endNode: "tech-corridor", type: "walkway", distance: 50, accessibility: true, travelTime: 1 },
+    { id: "path-20", startNode: "south-parking", endNode: "sports-complex", type: "walkway", distance: 80, accessibility: true, travelTime: 2 },
+    { id: "path-21", startNode: "west-parking", endNode: "residential-area", type: "walkway", distance: 100, accessibility: true, travelTime: 2 },
+
+    // Amenity connections
+    { id: "path-22", startNode: "innovation-hub", endNode: "tech-corridor", type: "walkway", distance: 80, accessibility: true, travelTime: 2 },
+    { id: "path-23", startNode: "community-center", endNode: "residential-area", type: "walkway", distance: 50, accessibility: true, travelTime: 1 },
+    { id: "path-24", startNode: "outdoor-theater", endNode: "central-quad", type: "pathway", distance: 120, accessibility: true, travelTime: 2 },
+    { id: "path-25", startNode: "botanical-garden", endNode: "wellness-walk", type: "pathway", distance: 60, accessibility: true, travelTime: 1 },
+
+    // Cross-campus connections
+    { id: "path-26", startNode: "north-quad", endNode: "research-path", type: "covered", distance: 90, accessibility: true, travelTime: 2 },
+    { id: "path-27", startNode: "research-path", endNode: "innovation-hub", type: "walkway", distance: 480, accessibility: true, travelTime: 8 },
+    { id: "path-28", startNode: "east-plaza", endNode: "east-residential", type: "walkway", distance: 80, accessibility: true, travelTime: 2 },
+    { id: "path-29", startNode: "south-plaza", endNode: "east-residential", type: "walkway", distance: 180, accessibility: true, travelTime: 3 },
+    { id: "path-30", startNode: "student-plaza", endNode: "south-plaza", type: "walkway", distance: 170, accessibility: true, travelTime: 3 }
   ];
 
   useEffect(() => {
     drawCampusMap();
-  }, [selectedBuilding, currentPath]);
+  }, [selectedBuilding, currentPath, viewMode, isEditMode]);
 
   const drawCampusMap = () => {
     const canvas = canvasRef.current;
@@ -216,20 +302,16 @@ export function RealisticCampusMap() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw campus background
-    ctx.fillStyle = "#f0f8f0";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw campus background with terrain
+    drawBackground(ctx);
 
-    // Draw grid for reference
-    drawGrid(ctx);
+    // Draw paths first (underneath buildings)
+    drawPaths(ctx);
 
-    // Draw walkways/paths first (underneath buildings)
-    drawWalkways(ctx);
-
-    // Draw buildings
+    // Draw buildings with architectural details
     drawBuildings(ctx);
 
-    // Draw nodes and connections
+    // Draw nodes and landmarks
     drawNodes(ctx);
 
     // Draw current path if exists
@@ -237,48 +319,114 @@ export function RealisticCampusMap() {
       drawCurrentPath(ctx);
     }
 
-    // Draw labels and legends
-    drawLabels(ctx);
+    // Draw campus features
+    drawCampusFeatures(ctx);
+
+    // Draw legend and compass
+    drawLegend(ctx);
+    drawCompass(ctx);
   };
 
-  const drawGrid = (ctx: CanvasRenderingContext2D) => {
+  const drawBackground = (ctx: CanvasRenderingContext2D) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    ctx.strokeStyle = "#e0e8e0";
-    ctx.lineWidth = 0.5;
-    
-    // Vertical lines
-    for (let x = 0; x <= canvas.width; x += 50) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-    
-    // Horizontal lines
-    for (let y = 0; y <= canvas.height; y += 50) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
+    // Create gradient background for realistic terrain
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, "#e8f5e8");
+    gradient.addColorStop(0.5, "#f0f8f0");
+    gradient.addColorStop(1, "#e0f0e0");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw landscaping areas
+    drawLandscaping(ctx);
   };
 
-  const drawWalkways = (ctx: CanvasRenderingContext2D) => {
+  const drawLandscaping = (ctx: CanvasRenderingContext2D) => {
+    // Draw green spaces and landscaped areas
+    ctx.fillStyle = "#90EE90";
+    ctx.globalAlpha = 0.3;
+    
+    // Central quad green space
+    ctx.fillRect(380, 240, 80, 80);
+    
+    // North academic lawn
+    ctx.fillRect(200, 140, 100, 60);
+    
+    // East plaza gardens
+    ctx.fillRect(520, 200, 80, 60);
+    
+    // Botanical garden area
+    ctx.fillRect(480, 330, 60, 60);
+    
+    ctx.globalAlpha = 1.0;
+  };
+
+  const drawPaths = (ctx: CanvasRenderingContext2D) => {
     mapPaths.forEach(path => {
       const startNode = mapNodes.find(n => n.id === path.startNode);
       const endNode = mapNodes.find(n => n.id === path.endNode);
       
       if (startNode && endNode) {
-        ctx.strokeStyle = path.accessibility ? "#d4d4aa" : "#c0c0c0";
-        ctx.lineWidth = path.type === "walkway" ? 8 : 4;
+        // Different path styles
+        let pathColor = "#d4d4aa";
+        let pathWidth = 6;
+        
+        switch (path.type) {
+          case "road":
+            pathColor = "#708090";
+            pathWidth = 12;
+            break;
+          case "covered":
+            pathColor = "#8FBC8F";
+            pathWidth = 8;
+            break;
+          case "pathway":
+            pathColor = "#DEB887";
+            pathWidth = 4;
+            break;
+          default:
+            pathColor = "#D2B48C";
+            pathWidth = 6;
+        }
+        
+        if (!path.accessibility) {
+          pathColor = "#C0C0C0";
+        }
+        
+        ctx.strokeStyle = pathColor;
+        ctx.lineWidth = pathWidth;
         ctx.lineCap = "round";
+        
+        // Add shadow for depth
+        ctx.shadowColor = "rgba(0,0,0,0.2)";
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
         
         ctx.beginPath();
         ctx.moveTo(startNode.x, startNode.y);
         ctx.lineTo(endNode.x, endNode.y);
         ctx.stroke();
+        
+        // Reset shadow
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Draw covered walkway indicators
+        if (path.type === "covered") {
+          ctx.strokeStyle = "#556B2F";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(startNode.x, startNode.y);
+          ctx.lineTo(endNode.x, endNode.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
       }
     });
   };
@@ -288,97 +436,248 @@ export function RealisticCampusMap() {
       const { x, y, width, height } = building.coordinates;
       const isSelected = selectedBuilding?.id === building.id;
       
-      // Building shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
-      ctx.fillRect(x + 3, y + 3, width, height);
+      // Building shadow for depth
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+      ctx.fillRect(x + 4, y + 4, width, height);
       
-      // Building base color based on type
+      // Building base color based on type with more realistic colors
       let buildingColor = "#e0e0e0";
+      let accentColor = "#c0c0c0";
+      
       switch (building.type) {
-        case "academic": buildingColor = "#4a90e2"; break;
-        case "residential": buildingColor = "#7ed321"; break;
-        case "administrative": buildingColor = "#f5a623"; break;
-        case "recreational": buildingColor = "#d0021b"; break;
+        case "academic":
+          buildingColor = "#8B4513";
+          accentColor = "#A0522D";
+          break;
+        case "library":
+          buildingColor = "#2F4F4F";
+          accentColor = "#708090";
+          break;
+        case "residential":
+          buildingColor = "#CD853F";
+          accentColor = "#DEB887";
+          break;
+        case "administrative":
+          buildingColor = "#4682B4";
+          accentColor = "#87CEEB";
+          break;
+        case "recreational":
+          buildingColor = "#228B22";
+          accentColor = "#32CD32";
+          break;
+        case "dining":
+          buildingColor = "#FF6347";
+          accentColor = "#FF7F50";
+          break;
+        case "medical":
+          buildingColor = "#DC143C";
+          accentColor = "#F08080";
+          break;
       }
       
-      ctx.fillStyle = isSelected ? "#ff6b6b" : buildingColor;
+      if (isSelected) {
+        buildingColor = "#FFD700";
+        accentColor = "#FFA500";
+      }
+      
+      // Main building structure
+      ctx.fillStyle = buildingColor;
       ctx.fillRect(x, y, width, height);
       
-      // Building outline
-      ctx.strokeStyle = isSelected ? "#ff4757" : "#2c3e50";
+      // Building outline with proper architectural styling
+      ctx.strokeStyle = isSelected ? "#FF4500" : "#2F2F2F";
       ctx.lineWidth = isSelected ? 3 : 2;
       ctx.strokeRect(x, y, width, height);
       
-      // Building details (windows, doors)
+      // Draw architectural details
       drawBuildingDetails(ctx, building);
       
-      // Building label
-      ctx.fillStyle = "#2c3e50";
-      ctx.font = "bold 12px Arial";
+      // Building code label
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 14px Arial";
       ctx.textAlign = "center";
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 3;
+      ctx.strokeText(building.code, x + width/2, y + height/2);
       ctx.fillText(building.code, x + width/2, y + height/2);
       
+      // Building name (smaller text)
       ctx.font = "10px Arial";
-      ctx.fillText(building.name, x + width/2, y + height/2 + 15);
+      ctx.strokeText(building.name, x + width/2, y + height/2 + 18);
+      ctx.fillText(building.name, x + width/2, y + height/2 + 18);
+      
+      // Accessibility indicator
+      if (building.isAccessible) {
+        ctx.fillStyle = "#0066CC";
+        ctx.font = "12px Arial";
+        ctx.fillText("♿", x + width - 15, y + 15);
+      }
     });
   };
 
   const drawBuildingDetails = (ctx: CanvasRenderingContext2D, building: Building) => {
     const { x, y, width, height } = building.coordinates;
     
-    // Draw windows
-    ctx.fillStyle = "#87ceeb";
-    const windowSize = 8;
-    const windowSpacing = 15;
+    // Draw windows in a realistic pattern
+    ctx.fillStyle = "#87CEEB";
+    const windowWidth = 8;
+    const windowHeight = 12;
+    const windowSpacingX = 16;
+    const windowSpacingY = 20;
     
-    for (let floor = 0; floor < building.floors; floor++) {
-      const floorY = y + 10 + (floor * (height - 20) / building.floors);
-      for (let i = 0; i < Math.floor(width / windowSpacing) - 1; i++) {
-        const windowX = x + 10 + (i * windowSpacing);
-        ctx.fillRect(windowX, floorY, windowSize, windowSize);
+    // Calculate window grid based on building floors
+    const floorsToShow = Math.min(building.floors, 6);
+    for (let floor = 0; floor < floorsToShow; floor++) {
+      const floorY = y + 15 + (floor * windowSpacingY);
+      for (let col = 0; col < Math.floor((width - 20) / windowSpacingX); col++) {
+        const windowX = x + 10 + (col * windowSpacingX);
+        if (floorY + windowHeight < y + height - 10) {
+          // Window frame
+          ctx.fillStyle = "#4682B4";
+          ctx.fillRect(windowX, floorY, windowWidth, windowHeight);
+          // Window glass
+          ctx.fillStyle = "#87CEEB";
+          ctx.fillRect(windowX + 1, floorY + 1, windowWidth - 2, windowHeight - 2);
+        }
       }
     }
     
-    // Draw main entrance
-    ctx.fillStyle = "#8b4513";
-    const doorWidth = 12;
-    const doorHeight = 20;
-    ctx.fillRect(x + width/2 - doorWidth/2, y + height - doorHeight, doorWidth, doorHeight);
+    // Main entrance
+    const entranceWidth = Math.min(20, width * 0.2);
+    const entranceHeight = 25;
+    ctx.fillStyle = "#8B4513";
+    ctx.fillRect(x + width/2 - entranceWidth/2, y + height - entranceHeight, entranceWidth, entranceHeight);
+    
+    // Entrance details
+    ctx.fillStyle = "#654321";
+    ctx.fillRect(x + width/2 - 2, y + height - entranceHeight, 4, entranceHeight);
+    
+    // Roof details for larger buildings
+    if (width > 100) {
+      ctx.strokeStyle = "#696969";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + width, y);
+      ctx.stroke();
+    }
   };
 
   const drawNodes = (ctx: CanvasRenderingContext2D) => {
     mapNodes.forEach(node => {
-      let nodeColor = "#34495e";
-      let nodeSize = 6;
+      let nodeColor = "#2F4F4F";
+      let nodeSize = 8;
+      let nodeShape = "circle";
       
       switch (node.type) {
-        case "entrance": nodeColor = "#e74c3c"; nodeSize = 8; break;
-        case "junction": nodeColor = "#3498db"; nodeSize = 6; break;
-        case "landmark": nodeColor = "#9b59b6"; nodeSize = 10; break;
-        case "building": nodeColor = "#2ecc71"; nodeSize = 8; break;
+        case "entrance":
+          nodeColor = "#DC143C";
+          nodeSize = 10;
+          break;
+        case "junction":
+          nodeColor = "#4169E1";
+          nodeSize = 8;
+          break;
+        case "landmark":
+          nodeColor = "#9932CC";
+          nodeSize = 12;
+          nodeShape = "star";
+          break;
+        case "parking":
+          nodeColor = "#696969";
+          nodeSize = 10;
+          nodeShape = "square";
+          break;
+        case "amenity":
+          nodeColor = "#228B22";
+          nodeSize = 10;
+          nodeShape = "diamond";
+          break;
+      }
+      
+      // Node shadow
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      if (nodeShape === "circle") {
+        ctx.beginPath();
+        ctx.arc(node.x + 1, node.y + 1, nodeSize + 1, 0, 2 * Math.PI);
+        ctx.fill();
       }
       
       // Node outline
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, nodeSize + 2, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.fillStyle = "#FFFFFF";
+      if (nodeShape === "circle") {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, nodeSize + 2, 0, 2 * Math.PI);
+        ctx.fill();
+      } else if (nodeShape === "square") {
+        ctx.fillRect(node.x - nodeSize - 2, node.y - nodeSize - 2, (nodeSize + 2) * 2, (nodeSize + 2) * 2);
+      }
       
-      // Node
+      // Main node
       ctx.fillStyle = nodeColor;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI);
-      ctx.fill();
+      if (nodeShape === "circle") {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI);
+        ctx.fill();
+      } else if (nodeShape === "square") {
+        ctx.fillRect(node.x - nodeSize, node.y - nodeSize, nodeSize * 2, nodeSize * 2);
+      } else if (nodeShape === "diamond") {
+        ctx.beginPath();
+        ctx.moveTo(node.x, node.y - nodeSize);
+        ctx.lineTo(node.x + nodeSize, node.y);
+        ctx.lineTo(node.x, node.y + nodeSize);
+        ctx.lineTo(node.x - nodeSize, node.y);
+        ctx.closePath();
+        ctx.fill();
+      } else if (nodeShape === "star") {
+        drawStar(ctx, node.x, node.y, 5, nodeSize, nodeSize/2);
+      }
+      
+      // Accessibility indicator
+      if (node.accessibility) {
+        ctx.fillStyle = "#0066CC";
+        ctx.font = "8px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("♿", node.x, node.y - nodeSize - 8);
+      }
     });
+  };
+
+  const drawStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerRadius: number, innerRadius: number) => {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    
+    for (let i = 0; i < spikes; i++) {
+      x = cx + Math.cos(rot) * outerRadius;
+      y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+    }
+    
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fill();
   };
 
   const drawCurrentPath = (ctx: CanvasRenderingContext2D) => {
     if (currentPath.length < 2) return;
     
-    ctx.strokeStyle = "#ff6b6b";
-    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#FF1493";
+    ctx.lineWidth = 8;
     ctx.lineCap = "round";
-    ctx.setLineDash([10, 5]);
+    ctx.setLineDash([15, 8]);
+    ctx.shadowColor = "rgba(255, 20, 147, 0.3)";
+    ctx.shadowBlur = 4;
     
     for (let i = 0; i < currentPath.length - 1; i++) {
       const currentNode = mapNodes.find(n => n.id === currentPath[i]);
@@ -392,41 +691,97 @@ export function RealisticCampusMap() {
       }
     }
     
-    ctx.setLineDash([]); // Reset line dash
+    ctx.setLineDash([]);
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
   };
 
-  const drawLabels = (ctx: CanvasRenderingContext2D) => {
-    // Draw legend
+  const drawCampusFeatures = (ctx: CanvasRenderingContext2D) => {
+    // Draw campus name
+    ctx.fillStyle = "#2F4F4F";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 4;
+    ctx.strokeText("UNIVERSITY CAMPUS", 400, 30);
+    ctx.fillText("UNIVERSITY CAMPUS", 400, 30);
+  };
+
+  const drawLegend = (ctx: CanvasRenderingContext2D) => {
     const legendX = 20;
-    const legendY = 20;
+    const legendY = 400;
+    const legendWidth = 180;
+    const legendHeight = 180;
     
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-    ctx.fillRect(legendX - 10, legendY - 10, 200, 120);
-    ctx.strokeStyle = "#2c3e50";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(legendX - 10, legendY - 10, 200, 120);
+    // Legend background
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.fillRect(legendX, legendY, legendWidth, legendHeight);
+    ctx.strokeStyle = "#2F4F4F";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(legendX, legendY, legendWidth, legendHeight);
     
-    ctx.fillStyle = "#2c3e50";
+    ctx.fillStyle = "#2F4F4F";
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("Campus Map Legend", legendX, legendY + 10);
+    ctx.fillText("Campus Legend", legendX + 10, legendY + 20);
     
     const legendItems = [
-      { color: "#4a90e2", label: "Academic Buildings" },
-      { color: "#7ed321", label: "Residential" },
-      { color: "#f5a623", label: "Administrative" },
-      { color: "#d0021b", label: "Recreation" }
+      { color: "#8B4513", label: "Academic Buildings", type: "building" },
+      { color: "#2F4F4F", label: "Library", type: "building" },
+      { color: "#CD853F", label: "Residential", type: "building" },
+      { color: "#4682B4", label: "Administrative", type: "building" },
+      { color: "#228B22", label: "Recreation", type: "building" },
+      { color: "#DC143C", label: "Entrance", type: "node" },
+      { color: "#4169E1", label: "Junction", type: "node" },
+      { color: "#696969", label: "Parking", type: "node" }
     ];
     
     legendItems.forEach((item, index) => {
-      const y = legendY + 30 + (index * 20);
+      const y = legendY + 40 + (index * 16);
       ctx.fillStyle = item.color;
-      ctx.fillRect(legendX, y - 8, 15, 15);
       
-      ctx.fillStyle = "#2c3e50";
-      ctx.font = "12px Arial";
-      ctx.fillText(item.label, legendX + 25, y + 5);
+      if (item.type === "building") {
+        ctx.fillRect(legendX + 10, y - 6, 12, 12);
+      } else {
+        ctx.beginPath();
+        ctx.arc(legendX + 16, y, 6, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      ctx.fillStyle = "#2F4F4F";
+      ctx.font = "11px Arial";
+      ctx.fillText(item.label, legendX + 30, y + 4);
     });
+  };
+
+  const drawCompass = (ctx: CanvasRenderingContext2D) => {
+    const compassX = 720;
+    const compassY = 80;
+    const compassSize = 40;
+    
+    // Compass background
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.beginPath();
+    ctx.arc(compassX, compassY, compassSize, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = "#2F4F4F";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // North arrow
+    ctx.fillStyle = "#DC143C";
+    ctx.beginPath();
+    ctx.moveTo(compassX, compassY - compassSize + 10);
+    ctx.lineTo(compassX - 8, compassY);
+    ctx.lineTo(compassX + 8, compassY);
+    ctx.closePath();
+    ctx.fill();
+    
+    // North label
+    ctx.fillStyle = "#2F4F4F";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("N", compassX, compassY - compassSize + 25);
   };
 
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -463,7 +818,6 @@ export function RealisticCampusMap() {
           setEndLocation(clickedNode.id);
           findPath(startLocation, clickedNode.id);
         } else {
-          // Reset and start over
           setStartLocation(clickedNode.id);
           setEndLocation("");
           setCurrentPath([]);
@@ -473,12 +827,10 @@ export function RealisticCampusMap() {
   };
 
   const findPath = (start: string, end: string) => {
-    // Simple pathfinding using Dijkstra's algorithm
     const distances: { [key: string]: number } = {};
     const previous: { [key: string]: string | null } = {};
     const unvisited = new Set<string>();
 
-    // Initialize distances
     mapNodes.forEach(node => {
       distances[node.id] = node.id === start ? 0 : Infinity;
       previous[node.id] = null;
@@ -486,7 +838,6 @@ export function RealisticCampusMap() {
     });
 
     while (unvisited.size > 0) {
-      // Find unvisited node with minimum distance
       let currentNode: string | null = null;
       let minDistance = Infinity;
       
@@ -501,7 +852,6 @@ export function RealisticCampusMap() {
 
       unvisited.delete(currentNode);
 
-      // Check all neighbors
       const currentNodeData = mapNodes.find(n => n.id === currentNode);
       if (currentNodeData) {
         currentNodeData.connections.forEach(neighborId => {
@@ -523,7 +873,6 @@ export function RealisticCampusMap() {
       }
     }
 
-    // Reconstruct path
     const path: string[] = [];
     let currentNode: string | null = end;
     
@@ -537,12 +886,15 @@ export function RealisticCampusMap() {
     }
   };
 
+  const canEdit = user?.role === 'admin' || user?.role === 'super_admin';
+
   const filteredBuildings = buildings.filter(building =>
     building.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     building.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
     building.departments.some(dept => 
       dept.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    ) ||
+    building.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -554,9 +906,28 @@ export function RealisticCampusMap() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
-                Interactive Campus Map
+                Interactive University Campus Map
               </CardTitle>
               <div className="flex items-center gap-2">
+                <Select value={viewMode} onValueChange={(value: 'overview' | 'detailed') => setViewMode(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="overview">Overview</SelectItem>
+                    <SelectItem value="detailed">Detailed</SelectItem>
+                  </SelectContent>
+                </Select>
+                {canEdit && (
+                  <Button
+                    variant={isEditMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsEditMode(!isEditMode)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    {isEditMode ? "Exit Edit" : "Edit Map"}
+                  </Button>
+                )}
                 <Button
                   variant={pathfindingMode ? "default" : "outline"}
                   size="sm"
@@ -590,13 +961,18 @@ export function RealisticCampusMap() {
                 Click on map points to set start and destination for navigation
               </div>
             )}
+            {isEditMode && canEdit && (
+              <div className="text-sm text-orange-600 font-medium">
+                Edit Mode Active - Click buildings and nodes to modify
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <canvas
               ref={canvasRef}
-              width={700}
+              width={800}
               height={600}
-              className="border rounded-lg cursor-pointer bg-white"
+              className="border rounded-lg cursor-pointer bg-white shadow-lg"
               onClick={handleCanvasClick}
             />
           </CardContent>
@@ -605,6 +981,31 @@ export function RealisticCampusMap() {
 
       {/* Side Panel */}
       <div className="w-full lg:w-80 space-y-4">
+        {/* User Role Display */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Shield className="w-5 h-5" />
+              Access Level
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Badge variant={user?.role === 'super_admin' ? 'destructive' : user?.role === 'admin' ? 'default' : 'secondary'}>
+                {user?.role?.replace('_', ' ').toUpperCase()}
+              </Badge>
+              {canEdit && (
+                <Badge variant="outline">
+                  Map Editor
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              {user?.fullName}
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Search */}
         <Card>
           <CardHeader className="pb-3">
@@ -612,10 +1013,10 @@ export function RealisticCampusMap() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <Label htmlFor="search">Search by name, code, or department</Label>
+              <Label htmlFor="search">Search by name, code, type, or department</Label>
               <Input
                 id="search"
-                placeholder="e.g. Library, SCI, Physics..."
+                placeholder="e.g. Library, SCI, academic, Physics..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -631,14 +1032,22 @@ export function RealisticCampusMap() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="text-sm">
-                <span className="font-medium">Start:</span> {startLocation || "Click on map"}
+                <span className="font-medium">Start:</span> {
+                  startLocation ? mapNodes.find(n => n.id === startLocation)?.label || "Unknown" : "Click on map"
+                }
               </div>
               <div className="text-sm">
-                <span className="font-medium">Destination:</span> {endLocation || "Click on map"}
+                <span className="font-medium">Destination:</span> {
+                  endLocation ? mapNodes.find(n => n.id === endLocation)?.label || "Unknown" : "Click on map"
+                }
               </div>
               {currentPath.length > 0 && (
                 <div className="text-sm">
-                  <span className="font-medium">Route found:</span> {currentPath.length} steps
+                  <span className="font-medium">Route found:</span> {currentPath.length} waypoints
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Estimated walking time: {Math.ceil(currentPath.length * 1.5)} minutes
+                  </span>
                 </div>
               )}
             </CardContent>
@@ -655,9 +1064,12 @@ export function RealisticCampusMap() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline">{selectedBuilding.code}</Badge>
                 <Badge variant="secondary">{selectedBuilding.type}</Badge>
+                {selectedBuilding.isAccessible && (
+                  <Badge variant="outline" className="text-blue-600">♿ Accessible</Badge>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -667,6 +1079,11 @@ export function RealisticCampusMap() {
                   <span className="font-medium">Capacity:</span> {selectedBuilding.capacity}
                 </div>
               </div>
+              {selectedBuilding.openingHours && (
+                <div className="text-sm">
+                  <span className="font-medium">Hours:</span> {selectedBuilding.openingHours}
+                </div>
+              )}
               <div>
                 <span className="font-medium">Departments:</span>
                 <div className="mt-1 space-y-1">
@@ -677,6 +1094,18 @@ export function RealisticCampusMap() {
                   ))}
                 </div>
               </div>
+              {selectedBuilding.facilities && selectedBuilding.facilities.length > 0 && (
+                <div>
+                  <span className="font-medium">Facilities:</span>
+                  <div className="mt-1 space-y-1">
+                    {selectedBuilding.facilities.map((facility, index) => (
+                      <Badge key={index} variant="secondary" className="mr-1 mb-1">
+                        {facility}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -705,9 +1134,14 @@ export function RealisticCampusMap() {
                         {building.name}
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {building.type}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs">
+                        {building.type}
+                      </Badge>
+                      {building.isAccessible && (
+                        <span className="text-blue-600">♿</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

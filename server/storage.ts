@@ -1,12 +1,12 @@
-import { 
-  users, buildings, rooms, courses, schedules, reminders,
-  type User, type InsertUser, type Building, type InsertBuilding,
-  type Room, type InsertRoom, type Course, type InsertCourse,
-  type Schedule, type InsertSchedule, type Reminder, type InsertReminder,
-  type CourseWithSchedules, type ScheduleWithDetails
-} from "@shared/schema";
+
 import { db } from "./db";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { users, buildings, rooms, courses, schedules, reminders } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import type { 
+  User, InsertUser, Building, InsertBuilding, Room, InsertRoom,
+  Course, InsertCourse, CourseWithSchedules, Schedule, InsertSchedule, 
+  ScheduleWithDetails, Reminder, InsertReminder 
+} from "@shared/schema";
 
 export interface IStorage {
   // User methods
@@ -104,20 +104,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCoursesByUser(userId: number): Promise<CourseWithSchedules[]> {
-    return await db.query.courses.findMany({
+    const userCourses = await db.query.courses.findMany({
       where: eq(courses.userId, userId),
       with: {
         schedules: {
           with: {
             room: {
               with: {
-                building: true,
-              },
-            },
-          },
-        },
-      },
+                building: true
+              }
+            }
+          }
+        }
+      }
     });
+    return userCourses;
   }
 
   async getCourse(id: number): Promise<Course | undefined> {
@@ -144,38 +145,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSchedulesByUser(userId: number): Promise<ScheduleWithDetails[]> {
-    return await db.query.schedules.findMany({
+    const userSchedules = await db.query.schedules.findMany({
       where: eq(schedules.isActive, true),
       with: {
-        course: {
-          where: eq(courses.userId, userId),
-        },
+        course: true,
         room: {
           with: {
-            building: true,
-          },
-        },
-      },
+            building: true
+          }
+        }
+      }
     });
+    
+    // Filter by userId through course relationship
+    return userSchedules.filter(schedule => schedule.course.userId === userId);
   }
 
   async getSchedulesByDay(userId: number, dayOfWeek: number): Promise<ScheduleWithDetails[]> {
-    return await db.query.schedules.findMany({
+    const daySchedules = await db.query.schedules.findMany({
       where: and(
         eq(schedules.dayOfWeek, dayOfWeek),
         eq(schedules.isActive, true)
       ),
       with: {
-        course: {
-          where: eq(courses.userId, userId),
-        },
+        course: true,
         room: {
           with: {
-            building: true,
-          },
-        },
-      },
+            building: true
+          }
+        }
+      }
     });
+    
+    // Filter by userId through course relationship
+    return daySchedules.filter(schedule => schedule.course.userId === userId);
   }
 
   async createSchedule(schedule: InsertSchedule): Promise<Schedule> {

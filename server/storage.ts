@@ -1,4 +1,3 @@
-
 import { db } from "./db";
 import { users, buildings, rooms, courses, schedules, reminders, floors } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -19,37 +18,37 @@ export interface IStorage {
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
   getUsersByRole(role: string): Promise<User[]>;
-  
+
   // Building methods
   getAllBuildings(): Promise<Building[]>;
   getBuilding(id: number): Promise<Building | undefined>;
   createBuilding(building: InsertBuilding): Promise<Building>;
   updateBuilding(id: number, building: Partial<InsertBuilding>): Promise<Building | undefined>;
-  
+
   // Room methods
   getRoomsByBuilding(buildingId: number): Promise<Room[]>;
   getRoom(id: number): Promise<Room | undefined>;
   createRoom(room: InsertRoom): Promise<Room>;
-  
+
   // Course methods
   getCoursesByUser(userId: number): Promise<CourseWithSchedules[]>;
   getCourse(id: number): Promise<Course | undefined>;
   createCourse(course: InsertCourse): Promise<Course>;
   updateCourse(id: number, course: Partial<InsertCourse>): Promise<Course | undefined>;
   deleteCourse(id: number): Promise<boolean>;
-  
+
   // Schedule methods
   getSchedulesByUser(userId: number): Promise<ScheduleWithDetails[]>;
   getSchedulesByDay(userId: number, dayOfWeek: number): Promise<ScheduleWithDetails[]>;
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
   updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule | undefined>;
   deleteSchedule(id: number): Promise<boolean>;
-  
+
   // Reminder methods
   getRemindersByUser(userId: number): Promise<Reminder[]>;
   createReminder(reminder: InsertReminder): Promise<Reminder>;
   updateReminder(id: number, reminder: Partial<InsertReminder>): Promise<Reminder | undefined>;
-  
+
   // Floor methods
   getFloorsByBuilding(buildingId: number): Promise<Floor[]>;
   getFloor(id: number): Promise<Floor | undefined>;
@@ -89,7 +88,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
     const updateData: any = { ...userData, updatedAt: new Date() };
-    
+
     if (userData.password) {
       updateData.password = await bcrypt.hash(userData.password, 10);
     }
@@ -205,7 +204,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
     });
-    
+
     // Filter by userId through course relationship
     return userSchedules.filter(schedule => schedule.course.userId === userId);
   }
@@ -225,7 +224,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
     });
-    
+
     // Filter by userId through course relationship
     return daySchedules.filter(schedule => schedule.course.userId === userId);
   }
@@ -289,6 +288,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFloor(id: number): Promise<boolean> {
     const result = await db.delete(floors).where(eq(floors.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Reminder methods
+  async getRemindersByUser(userId: number) {
+    return await db
+      .select()
+      .from(reminders)
+      .leftJoin(schedules, eq(reminders.scheduleId, schedules.id))
+      .leftJoin(courses, eq(schedules.courseId, courses.id))
+      .where(eq(reminders.userId, userId));
+  }
+
+  async createReminder(data: any) {
+    const [reminder] = await db.insert(reminders).values(data).returning();
+    return reminder;
+  }
+
+  async updateReminder(id: number, data: any) {
+    const [reminder] = await db
+      .update(reminders)
+      .set(data)
+      .where(eq(reminders.id, id))
+      .returning();
+    return reminder;
+  }
+
+  async deleteReminder(id: number): Promise<boolean> {
+    const result = await db.delete(reminders).where(eq(reminders.id, id));
     return (result.rowCount ?? 0) > 0;
   }
 }

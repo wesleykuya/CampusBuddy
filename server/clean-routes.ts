@@ -256,6 +256,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reminder routes
+  app.get("/api/reminders", authenticateToken, async (req: any, res) => {
+    try {
+      const reminders = await storage.getRemindersByUser(req.user.id);
+      res.json(reminders);
+    } catch (error) {
+      console.error("Get reminders error:", error);
+      res.status(500).json({ message: "Failed to get reminders" });
+    }
+  });
+
+  app.post("/api/reminders", authenticateToken, async (req: any, res) => {
+    try {
+      const reminderData = { ...req.body, userId: req.user.id };
+      const reminder = await storage.createReminder(reminderData);
+      res.status(201).json(reminder);
+    } catch (error) {
+      console.error("Create reminder error:", error);
+      res.status(500).json({ message: "Failed to create reminder" });
+    }
+  });
+
+  app.put("/api/reminders/:id", authenticateToken, async (req: any, res) => {
+    try {
+      const reminderId = parseInt(req.params.id);
+      const reminder = await storage.updateReminder(reminderId, req.body);
+      res.json(reminder);
+    } catch (error) {
+      console.error("Update reminder error:", error);
+      res.status(500).json({ message: "Failed to update reminder" });
+    }
+  });
+
+  app.delete("/api/reminders/:id", authenticateToken, async (req: any, res) => {
+    try {
+      const reminderId = parseInt(req.params.id);
+      const deleted = await storage.deleteReminder(reminderId);
+      if (deleted) {
+        res.json({ message: "Reminder deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Reminder not found" });
+      }
+    } catch (error) {
+      console.error("Delete reminder error:", error);
+      res.status(500).json({ message: "Failed to delete reminder" });
+    }
+  });
+
+  // Profile routes
+  app.put("/api/auth/profile", authenticateToken, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { fullName, email, department, studentId } = req.body;
+      
+      const updatedUser = await storage.updateUser(userId, {
+        fullName,
+        email,
+        department,
+        studentId,
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.put("/api/auth/change-password", authenticateToken, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { currentPassword, newPassword } = req.body;
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const bcrypt = require('bcrypt');
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(userId, { password: hashedNewPassword });
+      
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -9,6 +9,9 @@ import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import SuperAdminPortal from "@/pages/super-admin";
+import SchedulesPage from "@/pages/schedules";
+import RemindersPage from "@/pages/reminders";
+import ProfilePage from "@/pages/profile";
 
 function Router() {
   const { user, isLoading } = useAuth();
@@ -35,6 +38,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/schedules" component={SchedulesPage} />
+      <Route path="/reminders" component={RemindersPage} />
+      <Route path="/profile" component={ProfilePage} />
       {user.role === "super_admin" && (
         <Route path="/super-admin" component={SuperAdminPortal} />
       )}

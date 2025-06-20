@@ -38,7 +38,7 @@ export function NavigationHeader() {
               </a>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="h-5 w-5" />
@@ -48,7 +48,7 @@ export function NavigationHeader() {
                 </span>
               )}
             </Button>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-3">

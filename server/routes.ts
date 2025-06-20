@@ -1,12 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import { registerAuthRoutes, authenticateToken, requireRole } from "./auth-routes";
 import { 
-  insertUserSchema, loginSchema, insertCourseSchema, 
-  insertScheduleSchema, insertBuildingSchema, insertRoomSchema,
-  insertFloorSchema
+  insertCourseSchema, insertScheduleSchema, insertBuildingSchema, 
+  insertRoomSchema, insertFloorSchema
 } from "@shared/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "campus-buddy-secret-key";
@@ -17,17 +15,48 @@ function authenticateToken(req: any, res: any, next: any) {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.sendStatus(401);
+    return res.status(401).json({ message: 'Access token required' });
   }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      return res.status(403).json({ message: 'Invalid or expired token' });
+    }
     req.user = user;
     next();
   });
 }
 
+// Role-based access control middleware
+function requireRole(allowedRoles: string[]) {
+  return async (req: any, res: any, next: any) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: 'User not found or inactive' });
+      }
+
+      if (!allowedRoles.includes(user.role)) {
+        return res.status(403).json({ message: 'Insufficient permissions' });
+      }
+
+      req.user = { ...req.user, role: user.role, fullUser: user };
+      next();
+    } catch (error) {
+      console.error('Role check error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register authentication routes
+  registerAuthRoutes(app);
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     try {

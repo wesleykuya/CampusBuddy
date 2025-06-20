@@ -1,70 +1,104 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
 import { NavigationHeader } from "@/components/navigation-header";
-import { Sidebar } from "@/components/sidebar";
-import { MapContainer } from "@/components/map-container";
-import { ScheduleModal } from "@/components/schedule-modal";
+import { RealisticCampusMap } from "@/components/realistic-campus-map";
 import { NotificationToast } from "@/components/notification-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield, Users, Map, Calendar } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation("/login");
-    }
-  }, [user, isLoading, setLocation]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading Campus Buddy...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  const { user } = useAuth();
 
   return (
-    <div className="font-sans bg-slate-50 text-slate-800 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <NavigationHeader />
-      
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-4rem)]">
-        <Sidebar />
-        <MapContainer />
-      </div>
+      <div className="flex h-[calc(100vh-4rem)]">
+        <div className="w-80 bg-white border-r border-gray-200 p-6 space-y-6 overflow-y-auto">
+          {/* User Welcome */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Welcome, {user?.fullName}</CardTitle>
+              <CardDescription>
+                Role: {user?.role?.replace("_", " ").toUpperCase()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                {user?.department && <div>Department: {user.department}</div>}
+                {user?.studentId && <div>Student ID: {user.studentId}</div>}
+              </div>
+            </CardContent>
+          </Card>
 
-      <ScheduleModal />
-      <NotificationToast />
+          {/* Role-based Navigation */}
+          {user?.role === "super_admin" && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Shield className="w-5 h-5" />
+                  Admin Controls
+                </CardTitle>
+                <CardDescription>
+                  Manage users and system settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Link to="/super-admin">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Users className="w-4 h-4 mr-2" />
+                    Super Admin Portal
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Mobile Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40">
-        <div className="grid grid-cols-4 h-16">
-          <button className="flex flex-col items-center justify-center space-y-1 text-primary">
-            <i className="fas fa-map text-lg"></i>
-            <span className="text-xs">Map</span>
-          </button>
-          <button className="flex flex-col items-center justify-center space-y-1 text-slate-600 hover:text-primary transition-colors">
-            <i className="fas fa-calendar text-lg"></i>
-            <span className="text-xs">Schedule</span>
-          </button>
-          <button className="flex flex-col items-center justify-center space-y-1 text-slate-600 hover:text-primary transition-colors">
-            <i className="fas fa-bell text-lg"></i>
-            <span className="text-xs">Alerts</span>
-          </button>
-          <button className="flex flex-col items-center justify-center space-y-1 text-slate-600 hover:text-primary transition-colors">
-            <i className="fas fa-user text-lg"></i>
-            <span className="text-xs">Profile</span>
-          </button>
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Map className="w-5 h-5" />
+                Campus Navigation
+              </CardTitle>
+              <CardDescription>
+                Find buildings and plan your route
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-sm">
+                <div className="font-medium mb-2">Features:</div>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Interactive campus map</li>
+                  <li>• Building search</li>
+                  <li>• Route planning</li>
+                  <li>• Department locations</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Schedule Quick View */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Calendar className="w-5 h-5" />
+                Quick Schedule
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                Schedule features coming soon...
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        <main className="flex-1 p-6">
+          <RealisticCampusMap />
+        </main>
       </div>
+      <NotificationToast />
     </div>
   );
 }

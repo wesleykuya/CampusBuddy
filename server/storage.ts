@@ -2,6 +2,7 @@
 import { db } from "./db";
 import { users, buildings, rooms, courses, schedules, reminders, floors } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import bcrypt from "bcrypt";
 import type { 
   User, InsertUser, Building, InsertBuilding, Room, InsertRoom,
   Course, InsertCourse, CourseWithSchedules, Schedule, InsertSchedule, 
@@ -14,6 +15,10 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
+  getUsersByRole(role: string): Promise<User[]>;
   
   // Building methods
   getAllBuildings(): Promise<Building[]>;
@@ -70,8 +75,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
+    const [user] = await db
+      .insert(users)
+      .values({ ...insertUser, password: hashedPassword })
+      .returning();
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.isActive, true));
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const updateData: any = { ...userData, updatedAt: new Date() };
+    
+    if (userData.password) {
+      updateData.password = await bcrypt.hash(userData.password, 10);
+    }
+
+    const [user] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const [user] = await db
+      .update(users)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return !!user;
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(users)
+      .where(and(eq(users.role, role), eq(users.isActive, true)));
   }
 
   async getAllBuildings(): Promise<Building[]> {

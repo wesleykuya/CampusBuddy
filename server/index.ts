@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./clean-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedTestData } from "./seed-data";
 

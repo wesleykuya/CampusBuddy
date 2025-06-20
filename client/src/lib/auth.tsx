@@ -10,6 +10,9 @@ interface AuthContextType {
     email: string;
     password: string;
     fullName: string;
+    role?: string;
+    department?: string;
+    studentId?: string;
   }) => Promise<void>;
   logout: () => void;
   isLoading: boolean;

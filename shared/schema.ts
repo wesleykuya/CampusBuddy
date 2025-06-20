@@ -9,8 +9,14 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
-  isAdmin: boolean("is_admin").default(false),
+  role: text("role").notNull().default("student"), // student, admin, super_admin
+  department: text("department"),
+  studentId: text("student_id"),
+  profileImage: text("profile_image"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastLogin: timestamp("last_login"),
 });
 
 export const buildings = pgTable("buildings", {
@@ -169,6 +175,20 @@ export const insertFloorSchema = createInsertSchema(floors).omit({
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
+});
+
+// User role schema
+export const userRoleSchema = z.enum(["student", "admin", "super_admin"]);
+
+// Create user schema for super admin
+export const createUserSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Invalid email address"),
+  fullName: z.string().min(2, "Full name is required"),
+  role: userRoleSchema,
+  department: z.string().optional(),
+  studentId: z.string().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 // Types

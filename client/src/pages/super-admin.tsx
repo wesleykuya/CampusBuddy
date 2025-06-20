@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, UserPlus, Edit, Shield, Users, Settings } from "lucide-react";
+import { Trash2, UserPlus, Edit, Shield, Users, Settings, UserCheck, UserX, BarChart3 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface User {
@@ -33,6 +33,15 @@ export default function SuperAdminPortal() {
   const { data: users, isLoading } = useQuery({
     queryKey: ["/api/admin/users"],
   });
+
+  // Calculate user statistics
+  const userStats = users ? {
+    total: users.length,
+    active: users.filter((user: User) => user.isActive).length,
+    inactive: users.filter((user: User) => !user.isActive).length,
+    admins: users.filter((user: User) => user.role === 'super_admin' || user.role === 'admin').length,
+    students: users.filter((user: User) => user.role === 'student').length
+  } : null;
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
@@ -105,6 +114,29 @@ export default function SuperAdminPortal() {
     },
   });
 
+  const toggleUserStatusMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      return await apiRequest(`/api/admin/users/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ isActive }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Success",
+        description: "User status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user status",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -133,6 +165,7 @@ export default function SuperAdminPortal() {
       role: formData.get("role"),
       department: formData.get("department") || undefined,
       studentId: formData.get("studentId") || undefined,
+      isActive: formData.get("isActive") === "true",
     };
     updateUserMutation.mutate(userData);
   };
@@ -243,6 +276,57 @@ export default function SuperAdminPortal() {
         </Dialog>
       </div>
 
+      {/* User Statistics */}
+      {userStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{userStats.total}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <UserCheck className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{userStats.active}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inactive Users</CardTitle>
+              <UserX className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{userStats.inactive}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Administrators</CardTitle>
+              <Shield className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{userStats.admins}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Students</CardTitle>
+              <BarChart3 className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{userStats.students}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4">
         {users?.map((user: User) => (
           <Card key={user.id} className="hover:shadow-md transition-shadow">
@@ -253,6 +337,9 @@ export default function SuperAdminPortal() {
                     {getRoleIcon(user.role)}
                     <Badge variant={getRoleBadgeVariant(user.role)}>
                       {user.role.replace("_", " ").toUpperCase()}
+                    </Badge>
+                    <Badge variant={user.isActive ? "outline" : "destructive"}>
+                      {user.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
                   <div>
@@ -272,6 +359,18 @@ export default function SuperAdminPortal() {
                   )}
                 </div>
                 <div className="flex items-center space-x-2">
+                  <Button
+                    variant={user.isActive ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => toggleUserStatusMutation.mutate({ 
+                      id: user.id, 
+                      isActive: !user.isActive 
+                    })}
+                    disabled={toggleUserStatusMutation.isPending}
+                  >
+                    {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                    {user.isActive ? "Deactivate" : "Activate"}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -362,14 +461,28 @@ export default function SuperAdminPortal() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-studentId">Student ID</Label>
-                <Input 
-                  id="edit-studentId" 
-                  name="studentId"
-                  defaultValue={selectedUser.studentId || ""}
-                  placeholder="Optional" 
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-studentId">Student ID</Label>
+                  <Input 
+                    id="edit-studentId" 
+                    name="studentId"
+                    defaultValue={selectedUser.studentId || ""}
+                    placeholder="Optional" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-isActive">Status</Label>
+                  <Select name="isActive" defaultValue={selectedUser.isActive ? "true" : "false"}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Active</SelectItem>
+                      <SelectItem value="false">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex justify-end space-x-2">
                 <Button 

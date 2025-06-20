@@ -86,11 +86,14 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).where(eq(users.isActive, true));
   }
 
-  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(id: number, userData: Partial<InsertUser & { isActive?: boolean }>): Promise<User | undefined> {
     const updateData: any = { ...userData, updatedAt: new Date() };
 
     if (userData.password) {
       updateData.password = await bcrypt.hash(userData.password, 10);
+    }
+    if (userData.isActive !== undefined) {
+      updateData.isActive = userData.isActive;
     }
 
     const [user] = await db

@@ -177,9 +177,14 @@ export function registerAuthRoutes(app: Express) {
       const userId = parseInt(req.params.id);
       const updateData = req.body;
       
-      // Don't allow super admin to change their own role
-      if (userId === req.user.id && updateData.role) {
-        return res.status(400).json({ message: "Cannot change your own role" });
+      // Don't allow super admin to change their own role or deactivate themselves
+      if (userId === req.user.id) {
+        if (updateData.role) {
+          return res.status(400).json({ message: "Cannot change your own role" });
+        }
+        if (updateData.isActive === false) {
+          return res.status(400).json({ message: "Cannot deactivate your own account" });
+        }
       }
 
       const updatedUser = await storage.updateUser(userId, updateData);

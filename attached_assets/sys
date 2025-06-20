@@ -1,0 +1,2 @@
+SESSION_SECRET="TH7LiLj/UgJI3voo2c6Tyx6QZFwZDYOXtrF5YPe+L5cIEJiQ2O1IEsk+iWvwNbvWHNZWgS8YRCoxi1mkbdK0rw=="
+DATABASE_URL="postgresql://neondb_owner:npg_dYrmMcXHD5P0@ep-odd-math-a4joay71-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"

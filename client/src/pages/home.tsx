@@ -66,13 +66,20 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
+              <Link to="/navigation">
+                <Button variant="outline" className="w-full justify-start">
+                  <Map className="w-4 h-4 mr-2" />
+                  Enhanced 3D Navigation
+                </Button>
+              </Link>
               <div className="text-sm">
-                <div className="font-medium mb-2">Features:</div>
+                <div className="font-medium mb-2">New Features:</div>
                 <ul className="space-y-1 text-muted-foreground">
-                  <li>• Interactive campus map</li>
-                  <li>• Building search</li>
-                  <li>• Route planning</li>
-                  <li>• Department locations</li>
+                  <li>• 3D building visualization</li>
+                  <li>• Real-time GPS tracking</li>
+                  <li>• Indoor positioning with beacons</li>
+                  <li>• AR navigation (coming soon)</li>
+                  <li>• Turn-by-turn directions</li>
                 </ul>
               </div>
             </CardContent>

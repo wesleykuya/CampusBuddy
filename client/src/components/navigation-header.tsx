@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,13 +27,13 @@ export function NavigationHeader() {
               <span className="text-xl font-bold text-slate-800">Campus Buddy</span>
             </div>
             <div className="hidden md:flex space-x-6 ml-8">
-              <a href="#map" className="text-primary font-medium border-b-2 border-primary pb-1">
-                Map
+              <a href="/navigation" className="text-primary font-medium border-b-2 border-primary pb-1">
+                Navigation
               </a>
-              <a href="#schedule" className="text-slate-600 hover:text-primary transition-colors">
+              <a href="/schedules" className="text-slate-600 hover:text-primary transition-colors">
                 Schedule
               </a>
-              <a href="#reminders" className="text-slate-600 hover:text-primary transition-colors">
+              <a href="/reminders" className="text-slate-600 hover:text-primary transition-colors">
                 Reminders
               </a>
             </div>

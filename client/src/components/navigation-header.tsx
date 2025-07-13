@@ -27,6 +27,9 @@ export function NavigationHeader() {
               <span className="text-xl font-bold text-slate-800">Campus Buddy</span>
             </div>
             <div className="hidden md:flex space-x-6 ml-8">
+              <a href="/" className="text-slate-600 hover:text-primary transition-colors">
+                Home
+              </a>
               <a href="/navigation" className="text-primary font-medium border-b-2 border-primary pb-1">
                 Navigation
               </a>

@@ -1,11 +1,33 @@
+import { db } from "./db";
+import { buildings, floors, users } from "@shared/schema";
 import { storage } from "./storage";
+import bcrypt from "bcrypt";
+import { eq } from "drizzle-orm";
 
 export async function seedTestData() {
   try {
-    // Check if data already exists (memory storage already has seed data)
+    // Check if super admin already exists
+    const existingSuperAdmin = await db.select().from(users).where(eq(users.role, "super_admin")).limit(1);
+    
+    // Create super admin if doesn't exist
+    if (existingSuperAdmin.length === 0) {
+      const hashedPassword = await bcrypt.hash("adminpass", 10);
+      await db.insert(users).values({
+        username: "superadmin",
+        email: "admin@university.edu",
+        password: hashedPassword,
+        fullName: "Super Administrator",
+        role: "super_admin",
+        department: "IT Administration",
+        isActive: true
+      });
+      console.log("Super admin user created with username: superadmin, password: adminpass");
+    }
+
+    // Check if data already exists
     const existingBuildings = await storage.getAllBuildings();
     if (existingBuildings.length > 0) {
-      console.log("Test data already exists in memory storage, skipping additional seed");
+      console.log("Test data already exists, skipping seed");
       return;
     }
 

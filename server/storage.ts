@@ -1,3 +1,6 @@
+import { db } from "./db";
+import { users, buildings, rooms, courses, schedules, reminders, floors } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import type { 
   User, InsertUser, Building, InsertBuilding, Room, InsertRoom,
@@ -54,428 +57,242 @@ export interface IStorage {
   deleteFloor(id: number): Promise<boolean>;
 }
 
-export class MemoryStorage implements IStorage {
-  private users: Map<number, User> = new Map();
-  private buildings: Map<number, Building> = new Map();
-  private rooms: Map<number, Room> = new Map();
-  private courses: Map<number, Course> = new Map();
-  private schedules: Map<number, Schedule> = new Map();
-  private reminders: Map<number, Reminder> = new Map();
-  private floors: Map<number, Floor> = new Map();
-  
-  private nextUserId = 1;
-  private nextBuildingId = 1;
-  private nextRoomId = 1;
-  private nextCourseId = 1;
-  private nextScheduleId = 1;
-  private nextReminderId = 1;
-  private nextFloorId = 1;
-
-  constructor() {
-    this.seedData();
-  }
-
-  private async seedData() {
-    // Create admin user
-    const adminUser: User = {
-      id: this.nextUserId++,
-      username: "admin",
-      email: "admin@campus.edu",
-      password: await bcrypt.hash("password", 10),
-      fullName: "System Administrator",
-      role: "super_admin",
-      department: "IT",
-      studentId: null,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.users.set(adminUser.id, adminUser);
-
-    // Create test student
-    const studentUser: User = {
-      id: this.nextUserId++,
-      username: "student",
-      email: "student@campus.edu",
-      password: await bcrypt.hash("password", 10),
-      fullName: "Test Student",
-      role: "student",
-      department: "Computer Science",
-      studentId: "CS2024001",
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.users.set(studentUser.id, studentUser);
-
-    // Create test building
-    const building: Building = {
-      id: this.nextBuildingId++,
-      name: "Computer Science Building",
-      code: "CS",
-      address: "123 Campus Drive",
-      description: "Main computer science building",
-      floors: 3,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.buildings.set(building.id, building);
-
-    // Create test floor
-    const floor: Floor = {
-      id: this.nextFloorId++,
-      buildingId: building.id,
-      floorNumber: 1,
-      name: "First Floor",
-      mapData: JSON.stringify({
-        nodes: [
-          { id: "entrance", type: "entrance", x: 100, y: 100, connections: ["junction1"], label: "Main Entrance" },
-          { id: "junction1", type: "junction", x: 200, y: 100, connections: ["entrance", "room101"], label: "" },
-          { id: "room101", type: "room", x: 300, y: 100, connections: ["junction1"], label: "Room 101" }
-        ],
-        paths: [
-          { id: "path1", startNode: "entrance", endNode: "junction1", pathType: "corridor", distance: 10 },
-          { id: "path2", startNode: "junction1", endNode: "room101", pathType: "corridor", distance: 10 }
-        ]
-      }),
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.floors.set(floor.id, floor);
-
-    // Create test room
-    const room: Room = {
-      id: this.nextRoomId++,
-      buildingId: building.id,
-      roomNumber: "101",
-      name: "Lecture Hall A",
-      roomType: "classroom",
-      capacity: 50,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.rooms.set(room.id, room);
-
-    // Create test course
-    const course: Course = {
-      id: this.nextCourseId++,
-      userId: studentUser.id,
-      name: "Introduction to Computer Science",
-      code: "CS101",
-      description: "Fundamentals of computer science and programming",
-      credits: 3,
-      instructor: "Dr. Smith",
-      semester: "Fall 2024",
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.courses.set(course.id, course);
-
-    // Create test schedule
-    const schedule: Schedule = {
-      id: this.nextScheduleId++,
-      courseId: course.id,
-      roomId: room.id,
-      dayOfWeek: 1, // Monday
-      startTime: "09:00",
-      endTime: "10:30",
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.schedules.set(schedule.id, schedule);
-  }
-
-  // User methods
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username && user.isActive);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email && user.isActive);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const hashedPassword = await bcrypt.hash(insertUser.password, 10);
-    const user: User = {
-      id: this.nextUserId++,
-      ...insertUser,
-      password: hashedPassword,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.users.set(user.id, user);
+    const [user] = await db
+      .insert(users)
+      .values({ ...insertUser, password: hashedPassword })
+      .returning();
     return user;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values()).filter(user => user.isActive);
+    return await db.select().from(users).where(eq(users.isActive, true));
   }
 
   async updateUser(id: number, userData: Partial<InsertUser & { isActive?: boolean }>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-
     const updateData: any = { ...userData, updatedAt: new Date() };
+
     if (userData.password) {
       updateData.password = await bcrypt.hash(userData.password, 10);
     }
+    if (userData.isActive !== undefined) {
+      updateData.isActive = userData.isActive;
+    }
 
-    const updatedUser = { ...user, ...updateData };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [user] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   async deleteUser(id: number): Promise<boolean> {
-    const user = this.users.get(id);
-    if (!user) return false;
-    
-    const updated = { ...user, isActive: false, updatedAt: new Date() };
-    this.users.set(id, updated);
-    return true;
+    const [user] = await db
+      .update(users)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return !!user;
   }
 
   async getUsersByRole(role: string): Promise<User[]> {
-    return Array.from(this.users.values()).filter(user => user.role === role && user.isActive);
+    return await db.select().from(users)
+      .where(and(eq(users.role, role), eq(users.isActive, true)));
   }
 
-  // Building methods
   async getAllBuildings(): Promise<Building[]> {
-    return Array.from(this.buildings.values()).filter(building => building.isActive);
+    return await db.select().from(buildings).where(eq(buildings.isActive, true));
   }
 
   async getBuilding(id: number): Promise<Building | undefined> {
-    return this.buildings.get(id);
+    const [building] = await db.select().from(buildings).where(eq(buildings.id, id));
+    return building || undefined;
   }
 
-  async createBuilding(insertBuilding: InsertBuilding): Promise<Building> {
-    const building: Building = {
-      id: this.nextBuildingId++,
-      ...insertBuilding,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.buildings.set(building.id, building);
-    return building;
+  async createBuilding(building: InsertBuilding): Promise<Building> {
+    const [newBuilding] = await db.insert(buildings).values(building).returning();
+    return newBuilding;
   }
 
-  async updateBuilding(id: number, buildingData: Partial<InsertBuilding>): Promise<Building | undefined> {
-    const building = this.buildings.get(id);
-    if (!building) return undefined;
-
-    const updated = { ...building, ...buildingData, updatedAt: new Date() };
-    this.buildings.set(id, updated);
-    return updated;
+  async updateBuilding(id: number, building: Partial<InsertBuilding>): Promise<Building | undefined> {
+    const [updated] = await db.update(buildings)
+      .set(building)
+      .where(eq(buildings.id, id))
+      .returning();
+    return updated || undefined;
   }
 
-  // Room methods
   async getRoomsByBuilding(buildingId: number): Promise<Room[]> {
-    return Array.from(this.rooms.values()).filter(room => room.buildingId === buildingId && room.isActive);
+    return await db.select().from(rooms).where(eq(rooms.buildingId, buildingId));
   }
 
   async getRoom(id: number): Promise<Room | undefined> {
-    return this.rooms.get(id);
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
+    return room || undefined;
   }
 
-  async createRoom(insertRoom: InsertRoom): Promise<Room> {
-    const room: Room = {
-      id: this.nextRoomId++,
-      ...insertRoom,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.rooms.set(room.id, room);
-    return room;
+  async createRoom(room: InsertRoom): Promise<Room> {
+    const [newRoom] = await db.insert(rooms).values(room).returning();
+    return newRoom;
   }
 
-  // Course methods
   async getCoursesByUser(userId: number): Promise<CourseWithSchedules[]> {
-    const userCourses = Array.from(this.courses.values()).filter(course => course.userId === userId && course.isActive);
-    
-    return userCourses.map(course => ({
-      ...course,
-      schedules: Array.from(this.schedules.values())
-        .filter(schedule => schedule.courseId === course.id && schedule.isActive)
-        .map(schedule => {
-          const room = this.rooms.get(schedule.roomId);
-          const building = room ? this.buildings.get(room.buildingId) : undefined;
-          return {
-            ...schedule,
-            room: room ? {
-              ...room,
-              building: building!
-            } : {} as any
-          };
-        })
-    }));
+    const userCourses = await db.query.courses.findMany({
+      where: eq(courses.userId, userId),
+      with: {
+        schedules: {
+          with: {
+            room: {
+              with: {
+                building: true
+              }
+            }
+          }
+        }
+      }
+    });
+    return userCourses as CourseWithSchedules[];
   }
 
   async getCourse(id: number): Promise<Course | undefined> {
-    return this.courses.get(id);
+    const [course] = await db.select().from(courses).where(eq(courses.id, id));
+    return course || undefined;
   }
 
-  async createCourse(insertCourse: InsertCourse): Promise<Course> {
-    const course: Course = {
-      id: this.nextCourseId++,
-      ...insertCourse,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.courses.set(course.id, course);
-    return course;
+  async createCourse(course: InsertCourse): Promise<Course> {
+    const [newCourse] = await db.insert(courses).values(course).returning();
+    return newCourse;
   }
 
-  async updateCourse(id: number, courseData: Partial<InsertCourse>): Promise<Course | undefined> {
-    const course = this.courses.get(id);
-    if (!course) return undefined;
-
-    const updated = { ...course, ...courseData, updatedAt: new Date() };
-    this.courses.set(id, updated);
-    return updated;
+  async updateCourse(id: number, course: Partial<InsertCourse>): Promise<Course | undefined> {
+    const [updated] = await db.update(courses)
+      .set(course)
+      .where(eq(courses.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteCourse(id: number): Promise<boolean> {
-    const course = this.courses.get(id);
-    if (!course) return false;
-    
-    const updated = { ...course, isActive: false, updatedAt: new Date() };
-    this.courses.set(id, updated);
-    return true;
+    const result = await db.delete(courses).where(eq(courses.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
-  // Schedule methods
   async getSchedulesByUser(userId: number): Promise<ScheduleWithDetails[]> {
-    const userCourses = Array.from(this.courses.values()).filter(course => course.userId === userId && course.isActive);
-    const courseIds = userCourses.map(course => course.id);
-    
-    return Array.from(this.schedules.values())
-      .filter(schedule => courseIds.includes(schedule.courseId) && schedule.isActive)
-      .map(schedule => {
-        const course = this.courses.get(schedule.courseId)!;
-        const room = this.rooms.get(schedule.roomId);
-        const building = room ? this.buildings.get(room.buildingId) : undefined;
-        return {
-          ...schedule,
-          course,
-          room: room ? {
-            ...room,
-            building: building!
-          } : {} as any
-        };
-      });
+    const userSchedules = await db.query.schedules.findMany({
+      where: eq(schedules.isActive, true),
+      with: {
+        course: true,
+        room: {
+          with: {
+            building: true
+          }
+        }
+      }
+    });
+
+    // Filter by userId through course relationship
+    return userSchedules.filter(schedule => schedule.course.userId === userId) as ScheduleWithDetails[];
   }
 
   async getSchedulesByDay(userId: number, dayOfWeek: number): Promise<ScheduleWithDetails[]> {
-    const userSchedules = await this.getSchedulesByUser(userId);
-    return userSchedules.filter(schedule => schedule.dayOfWeek === dayOfWeek);
+    const daySchedules = await db.query.schedules.findMany({
+      where: and(
+        eq(schedules.dayOfWeek, dayOfWeek),
+        eq(schedules.isActive, true)
+      ),
+      with: {
+        course: true,
+        room: {
+          with: {
+            building: true
+          }
+        }
+      }
+    });
+
+    // Filter by userId through course relationship
+    return daySchedules.filter(schedule => schedule.course.userId === userId) as ScheduleWithDetails[];
   }
 
-  async createSchedule(insertSchedule: InsertSchedule): Promise<Schedule> {
-    const schedule: Schedule = {
-      id: this.nextScheduleId++,
-      ...insertSchedule,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.schedules.set(schedule.id, schedule);
-    return schedule;
+  async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
+    const [newSchedule] = await db.insert(schedules).values(schedule).returning();
+    return newSchedule;
   }
 
-  async updateSchedule(id: number, scheduleData: Partial<InsertSchedule>): Promise<Schedule | undefined> {
-    const schedule = this.schedules.get(id);
-    if (!schedule) return undefined;
-
-    const updated = { ...schedule, ...scheduleData, updatedAt: new Date() };
-    this.schedules.set(id, updated);
-    return updated;
+  async updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule | undefined> {
+    const [updated] = await db.update(schedules)
+      .set(schedule)
+      .where(eq(schedules.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteSchedule(id: number): Promise<boolean> {
-    const schedule = this.schedules.get(id);
-    if (!schedule) return false;
-    
-    const updated = { ...schedule, isActive: false, updatedAt: new Date() };
-    this.schedules.set(id, updated);
-    return true;
+    const result = await db.delete(schedules).where(eq(schedules.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
-  // Reminder methods
   async getRemindersByUser(userId: number): Promise<Reminder[]> {
-    return Array.from(this.reminders.values()).filter(reminder => reminder.userId === userId && reminder.isActive);
+    return await db.select().from(reminders).where(eq(reminders.userId, userId));
   }
 
-  async createReminder(insertReminder: InsertReminder): Promise<Reminder> {
-    const reminder: Reminder = {
-      id: this.nextReminderId++,
-      ...insertReminder,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.reminders.set(reminder.id, reminder);
-    return reminder;
+  async createReminder(reminder: InsertReminder): Promise<Reminder> {
+    const [newReminder] = await db.insert(reminders).values(reminder).returning();
+    return newReminder;
   }
 
-  async updateReminder(id: number, reminderData: Partial<InsertReminder>): Promise<Reminder | undefined> {
-    const reminder = this.reminders.get(id);
-    if (!reminder) return undefined;
-
-    const updated = { ...reminder, ...reminderData, updatedAt: new Date() };
-    this.reminders.set(id, updated);
-    return updated;
+  async updateReminder(id: number, reminder: Partial<InsertReminder>): Promise<Reminder | undefined> {
+    const [updated] = await db.update(reminders)
+      .set(reminder)
+      .where(eq(reminders.id, id))
+      .returning();
+    return updated || undefined;
   }
 
-  // Floor methods
   async getFloorsByBuilding(buildingId: number): Promise<Floor[]> {
-    return Array.from(this.floors.values()).filter(floor => floor.buildingId === buildingId && floor.isActive);
+    return await db.select().from(floors).where(eq(floors.buildingId, buildingId));
   }
 
   async getFloor(id: number): Promise<Floor | undefined> {
-    return this.floors.get(id);
+    const [floor] = await db.select().from(floors).where(eq(floors.id, id));
+    return floor || undefined;
   }
 
-  async createFloor(insertFloor: InsertFloor): Promise<Floor> {
-    const floor: Floor = {
-      id: this.nextFloorId++,
-      ...insertFloor,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.floors.set(floor.id, floor);
-    return floor;
+  async createFloor(floor: InsertFloor): Promise<Floor> {
+    const [newFloor] = await db.insert(floors).values(floor).returning();
+    return newFloor;
   }
 
-  async updateFloor(id: number, floorData: Partial<InsertFloor>): Promise<Floor | undefined> {
-    const floor = this.floors.get(id);
-    if (!floor) return undefined;
-
-    const updated = { ...floor, ...floorData, updatedAt: new Date() };
-    this.floors.set(id, updated);
-    return updated;
+  async updateFloor(id: number, floor: Partial<InsertFloor>): Promise<Floor | undefined> {
+    const [updated] = await db.update(floors)
+      .set(floor)
+      .where(eq(floors.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteFloor(id: number): Promise<boolean> {
-    const floor = this.floors.get(id);
-    if (!floor) return false;
-    
-    const updated = { ...floor, isActive: false, updatedAt: new Date() };
-    this.floors.set(id, updated);
-    return true;
+    const result = await db.delete(floors).where(eq(floors.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 
-export const storage = new MemoryStorage();
+export const storage = new DatabaseStorage();

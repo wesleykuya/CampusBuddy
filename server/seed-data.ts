@@ -24,6 +24,41 @@ export async function seedTestData() {
       console.log("Super admin user created with username: superadmin, password: adminpass");
     }
 
+    // Check if regular admin already exists
+    const existingAdmin = await db.select().from(users).where(eq(users.username, "admin")).limit(1);
+    
+    // Create regular admin if doesn't exist
+    if (existingAdmin.length === 0) {
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+      await db.insert(users).values({
+        username: "admin",
+        email: "admin@campus.edu",
+        password: hashedPassword,
+        fullName: "Campus Administrator",
+        role: "admin",
+        department: "Campus Operations",
+        isActive: true
+      });
+      console.log("Admin user created with username: admin, password: admin123");
+    }
+
+    // Create additional test admin if doesn't exist
+    const existingTestAdmin = await db.select().from(users).where(eq(users.username, "testadmin")).limit(1);
+    
+    if (existingTestAdmin.length === 0) {
+      const hashedPassword = await bcrypt.hash("test123", 10);
+      await db.insert(users).values({
+        username: "testadmin",
+        email: "testadmin@campus.edu",
+        password: hashedPassword,
+        fullName: "Test Administrator",
+        role: "admin",
+        department: "IT Testing",
+        isActive: true
+      });
+      console.log("Test admin user created with username: testadmin, password: test123");
+    }
+
     // Check if data already exists
     const existingBuildings = await storage.getAllBuildings();
     if (existingBuildings.length > 0) {

@@ -8,6 +8,7 @@ import {
 } from "@shared/schema";
 import multer from "multer";
 import { parseCoursesFromFile } from "./file-parser";
+import { notificationService } from "./notification-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure multer for file uploads
@@ -52,6 +53,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const buildingData = insertBuildingSchema.parse(req.body);
       const building = await storage.createBuilding(buildingData);
       res.json(building);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/buildings/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const buildingId = parseInt(req.params.id);
+      const buildingData = insertBuildingSchema.partial().parse(req.body);
+      const building = await storage.updateBuilding(buildingId, buildingData);
+      
+      if (!building) {
+        return res.status(404).json({ message: "Building not found" });
+      }
+      
+      res.json(building);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/buildings/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const buildingId = parseInt(req.params.id);
+      const success = await storage.deleteBuilding(buildingId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Building not found" });
+      }
+      
+      res.json({ message: "Building deleted successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -440,6 +472,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin user management routes (Super Admin only)
+  app.get("/api/admin/users", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/admin/users/:id", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const userData = req.body;
+      
+      const user = await storage.updateUser(userId, userData);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const success = await storage.deleteUser(userId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json({ message: "User deleted successfully" });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Notification routes
+  app.get("/api/notifications", authenticateToken, async (req, res) => {
+    try {
+      const notifications = notificationService.getNotifications(req.user.id);
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", authenticateToken, async (req, res) => {
+    try {
+      const notificationId = req.params.id;
+      const success = notificationService.markAsRead(req.user.id, notificationId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json({ message: "Notification marked as read" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", authenticateToken, async (req, res) => {
+    try {
+      const count = notificationService.getUnreadCount(req.user.id);
+      res.json({ count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // Initialize notification service
+  notificationService.initialize(httpServer);
+  
   return httpServer;
 }

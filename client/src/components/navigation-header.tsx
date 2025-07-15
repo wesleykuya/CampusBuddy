@@ -1,15 +1,32 @@
 import { useState } from "react";
-import { useAuth } from "@/lib/auth";
+import { useAuth, getAuthHeaders } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bell, ChevronDown, MapPin } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 export function NavigationHeader() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
-  const [notificationCount] = useState(3); // This would come from actual notifications
+  
+  // Fetch real notification count
+  const { data: notificationData } = useQuery({
+    queryKey: ["/api/notifications/unread-count"],
+    queryFn: async () => {
+      const response = await fetch("/api/notifications/unread-count", {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch notification count");
+      return response.json();
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  const notificationCount = notificationData?.count || 0;
 
   const getInitials = (name: string) => {
     return name

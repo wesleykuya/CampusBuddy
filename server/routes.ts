@@ -268,9 +268,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scheduleData = insertScheduleSchema.parse(req.body);
 
-      // Verify course belongs to user
-      const course = await storage.getCourse(scheduleData.courseId);
-      if (!course || course.userId !== req.user.id) {
+      // Verify course belongs to user (check both personal courses and system courses)
+      const personalCourse = await storage.getCourse(scheduleData.courseId);
+      const systemCourse = await storage.getSystemCourse(scheduleData.courseId);
+      
+      if (!personalCourse && !systemCourse) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      
+      // If it's a personal course, verify it belongs to the user
+      if (personalCourse && personalCourse.userId !== req.user.id) {
         return res.status(403).json({ message: "Invalid course" });
       }
 

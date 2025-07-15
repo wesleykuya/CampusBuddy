@@ -46,6 +46,13 @@ export default function SchedulesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [showOtherCourse, setShowOtherCourse] = useState(false);
+  const [newCourseData, setNewCourseData] = useState({
+    name: "",
+    code: "",
+    instructor: "",
+    color: "#000000",
+  });
 
   const { data: schedules, isLoading } = useQuery({
     queryKey: ["/api/schedules"],
@@ -125,8 +132,23 @@ export default function SchedulesPage() {
   const handleCreateSchedule = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    let courseId = parseInt(formData.get("courseId") as string);
+
+    if (showOtherCourse) {
+      // Handle creation of a new course
+      // **Backend Implementation Needed:** You'll need an API endpoint to create courses
+      // For now, let's just prevent the schedule creation and show an error.
+
+      toast({
+        title: "Error",
+        description: "Creating new courses is not yet supported. Backend implementation required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const scheduleData = {
-      courseId: parseInt(formData.get("courseId") as string),
+      courseId: courseId,
       roomId: formData.get("roomId") ? parseInt(formData.get("roomId") as string) : undefined,
       dayOfWeek: parseInt(formData.get("dayOfWeek") as string),
       startTime: formData.get("startTime"),
@@ -187,7 +209,7 @@ export default function SchedulesPage() {
             <form onSubmit={handleCreateSchedule} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="courseId">Course</Label>
-                <Select name="courseId" required>
+                <Select name="courseId" required onValueChange={(value) => setShowOtherCourse(value === "other")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select course" />
                   </SelectTrigger>
@@ -197,9 +219,58 @@ export default function SchedulesPage() {
                         {course.code} - {course.name}
                       </SelectItem>
                     ))}
+                    <SelectItem value="other">Other (Create New Course)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {showOtherCourse && (
+                <div className="space-y-4 p-4 border rounded-md bg-slate-50">
+                  <h4 className="font-medium text-sm">Create New Course</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newCourseName">Course Name</Label>
+                      <Input 
+                        id="newCourseName"
+                        placeholder="e.g., Introduction to Biology"
+                        value={newCourseData.name}
+                        onChange={(e) => setNewCourseData(prev => ({ ...prev, name: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newCourseCode">Course Code</Label>
+                      <Input 
+                        id="newCourseCode"
+                        placeholder="e.g., BIO101"
+                        value={newCourseData.code}
+                        onChange={(e) => setNewCourseData(prev => ({ ...prev, code: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newCourseInstructor">Instructor (Optional)</Label>
+                      <Input 
+                        id="newCourseInstructor"
+                        placeholder="e.g., Dr. Smith"
+                        value={newCourseData.instructor}
+                        onChange={(e) => setNewCourseData(prev => ({ ...prev, instructor: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newCourseColor">Color</Label>
+                      <Input 
+                        id="newCourseColor"
+                        type="color"
+                        value={newCourseData.color}
+                        onChange={(e) => setNewCourseData(prev => ({ ...prev, color: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dayOfWeek">Day</Label>
@@ -318,8 +389,8 @@ export default function SchedulesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {courses?.map((course: any) => (
-                      <SelectItem key={course.id} value={course.id.toString()}>
-                        {course.code} - {course.name}
+                      <SelectItem key={`personal-${course.id}`} value={course.id.toString()}>
+                        {course.code} - {course.name} (Personal)
                       </SelectItem>
                     ))}
                   </SelectContent>

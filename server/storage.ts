@@ -30,7 +30,7 @@ export interface IStorage {
   getBuilding(id: number): Promise<Building | undefined>;
   createBuilding(building: InsertBuilding): Promise<Building>;
   updateBuilding(id: number, building: Partial<InsertBuilding>): Promise<Building | undefined>;
-  
+
   // Room methods
   getRoomsByBuilding(buildingId: number): Promise<Room[]>;
   getRoom(id: number): Promise<Room | undefined>;
@@ -344,6 +344,11 @@ export class DatabaseStorage implements IStorage {
   async getSystemCourse(id: number): Promise<SystemCourse | undefined> {
     const [course] = await db.select().from(systemCourses).where(eq(systemCourses.id, id));
     return course || undefined;
+  }
+
+  async getSystemCourse(id: number): Promise<SystemCourse | null> {
+    const result = await this.db.select().from(systemCourses).where(eq(systemCourses.id, id)).limit(1);
+    return result[0] || null;
   }
 
   async updateSystemCourse(id: number, courseData: Partial<InsertSystemCourse>): Promise<SystemCourse | undefined> {

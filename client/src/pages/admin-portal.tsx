@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth";
 import { NavigationHeader } from "@/components/navigation-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,15 +47,34 @@ export default function AdminPortal() {
   const [isEditBuildingDialogOpen, setIsEditBuildingDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Import useAuth hook
+  const { user } = useAuth();
+  
+  // Check if user has admin access
+  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <NavigationHeader />
+        <div className="container mx-auto p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg text-red-600">Access denied. Admin privileges required.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch system courses
-  const { data: systemCourses, isLoading: coursesLoading } = useQuery({
+  const { data: systemCourses, isLoading: coursesLoading, error: coursesError } = useQuery({
     queryKey: ["/api/admin/system-courses"],
+    retry: 1,
   });
 
   // Fetch buildings
-  const { data: buildings, isLoading: buildingsLoading } = useQuery({
+  const { data: buildings, isLoading: buildingsLoading, error: buildingsError } = useQuery({
     queryKey: ["/api/buildings"],
+    retry: 1,
   });
 
   // Course mutations
@@ -214,6 +234,21 @@ export default function AdminPortal() {
     );
   }
 
+  if (coursesError || buildingsError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <NavigationHeader />
+        <div className="container mx-auto p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg text-red-600">
+              Error loading data: {coursesError?.message || buildingsError?.message || 'Unknown error'}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <NavigationHeader />
@@ -288,7 +323,7 @@ export default function AdminPortal() {
             </div>
 
             <div className="grid gap-4">
-              {systemCourses?.map((course: SystemCourse) => (
+              {(systemCourses || []).map((course: SystemCourse) => (
                 <Card key={course.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -408,7 +443,7 @@ export default function AdminPortal() {
             </div>
 
             <div className="grid gap-4">
-              {buildings?.map((building: Building) => (
+              {(buildings || []).map((building: Building) => (
                 <Card key={building.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">

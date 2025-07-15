@@ -132,7 +132,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllBuildings(): Promise<Building[]> {
-    return await db.select().from(buildings).where(eq(buildings.isActive, true));
+    try {
+      return await db.select().from(buildings).where(eq(buildings.isActive, true));
+    } catch (error) {
+      console.error("Error in getAllBuildings:", error);
+      // Fallback query without timestamp columns if they don't exist
+      return await db.select({
+        id: buildings.id,
+        name: buildings.name,
+        code: buildings.code,
+        description: buildings.description,
+        latitude: buildings.latitude,
+        longitude: buildings.longitude,
+        type: buildings.type,
+        amenities: buildings.amenities,
+        isActive: buildings.isActive
+      }).from(buildings).where(eq(buildings.isActive, true));
+    }
   }
 
   async getBuilding(id: number): Promise<Building | undefined> {

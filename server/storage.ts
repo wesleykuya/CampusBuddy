@@ -69,6 +69,10 @@ export interface IStorage {
   getSystemCourse(id: number): Promise<SystemCourse | undefined>;
   updateSystemCourse(id: number, courseData: Partial<InsertSystemCourse>): Promise<SystemCourse | undefined>;
   deleteSystemCourse(id: number): Promise<SystemCourse | undefined>;
+
+  //Admin schedule management
+  getAllSchedules(): Promise<any[]>;
+  getAllRooms(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -293,6 +297,39 @@ export class DatabaseStorage implements IStorage {
       }
     });
     return schedule as ScheduleWithDetails | undefined;
+  }
+
+  async getAllSchedules(): Promise<any[]> {
+    const result = await db
+      .select()
+      .from(schedules)
+      .leftJoin(courses, eq(schedules.courseId, courses.id))
+      .leftJoin(systemCourses, eq(schedules.courseId, systemCourses.id))
+      .leftJoin(rooms, eq(schedules.roomId, rooms.id))
+      .leftJoin(buildings, eq(rooms.buildingId, buildings.id))
+      .orderBy(schedules.dayOfWeek, schedules.startTime);
+
+    return result.map(row => ({
+      ...row.schedules,
+      course: row.courses || row.system_courses,
+      room: row.rooms ? {
+        ...row.rooms,
+        building: row.buildings
+      } : null
+    }));
+  }
+
+  async getAllRooms(): Promise<any[]> {
+    const result = await db
+      .select()
+      .from(rooms)
+      .leftJoin(buildings, eq(rooms.buildingId, buildings.id))
+      .orderBy(buildings.name, rooms.number);
+
+    return result.map(row => ({
+      ...row.rooms,
+      building: row.buildings
+    }));
   }
 
   async getRemindersByUser(userId: number): Promise<Reminder[]> {

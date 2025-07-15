@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 export function NavigationHeader() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
-  
+
   // Fetch real notification count
   const { data: notificationData } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
@@ -66,6 +66,9 @@ export function NavigationHeader() {
               </a>
               <a href="/schedules" className={getLinkClasses("/schedules")}>
                 Schedule
+              </a>
+              <a href="/timetable" className={getLinkClasses("/timetable")}>
+                Timetable
               </a>
               <a href="/reminders" className={getLinkClasses("/reminders")}>
                 Reminders

@@ -534,6 +534,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin schedule management routes
+  app.get("/api/admin/schedules", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const schedules = await storage.getAllSchedules();
+      res.json(schedules);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/schedules", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const scheduleData = insertScheduleSchema.parse(req.body);
+      const schedule = await storage.createSchedule(scheduleData);
+      
+      // Fetch the complete schedule with course and room details
+      const completeSchedule = await storage.getScheduleWithDetails(schedule.id);
+      res.json(completeSchedule);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/admin/schedules/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const scheduleId = parseInt(req.params.id);
+      const scheduleData = insertScheduleSchema.partial().parse(req.body);
+      const schedule = await storage.updateSchedule(scheduleId, scheduleData);
+      
+      if (!schedule) {
+        return res.status(404).json({ message: "Schedule not found" });
+      }
+      
+      res.json(schedule);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/schedules/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const scheduleId = parseInt(req.params.id);
+      const deleted = await storage.deleteSchedule(scheduleId);
+
+      if (deleted) {
+        res.json({ message: "Schedule deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Schedule not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Rooms API for admin
+  app.get("/api/rooms", async (req, res) => {
+    try {
+      const rooms = await storage.getAllRooms();
+      res.json(rooms);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Notification routes
   app.get("/api/notifications", authenticateToken, async (req, res) => {
     try {

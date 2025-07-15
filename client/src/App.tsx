@@ -9,8 +9,10 @@ import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import SuperAdminPortal from "@/pages/super-admin";
-import SchedulesPage from "@/pages/schedules";
-import RemindersPage from "@/pages/reminders";
+import SchedulesPage from "./pages/schedules";
+import TimetablePage from "./pages/timetable";
+import AdminTimetablePage from "./pages/admin-timetable";
+import RemindersPage from "./pages/reminders";
 import ProfilePage from "@/pages/profile";
 import EnhancedNavigation from "@/pages/enhanced-navigation";
 import AdminDashboard from "./pages/admin-dashboard";
@@ -42,6 +44,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/navigation" component={EnhancedNavigation} />
       <Route path="/schedules" component={SchedulesPage} />
+      <Route path="/timetable" component={TimetablePage} />
+      <Route path="/admin-timetable" component={AdminTimetablePage} />
       <Route path="/reminders" component={RemindersPage} />
       <Route path="/profile" component={ProfilePage} />
       {user.role === "super_admin" && (

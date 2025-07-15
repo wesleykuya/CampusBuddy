@@ -114,8 +114,8 @@ export function NotificationToast() {
           </div>
         </Card>
       ))}
-      
-      <style jsx global>{`
+
+      <style jsx="true" global="true">{`
         @keyframes slideIn {
           from {
             transform: translateX(100%);

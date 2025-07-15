@@ -54,6 +54,18 @@ export function ScheduleModal() {
     },
   });
 
+  const { data: systemCourses = [] } = useQuery({
+    queryKey: ["/api/system-courses"],
+    queryFn: async () => {
+      const response = await fetch("/api/system-courses", {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch system courses");
+      return response.json();
+    },
+  });
+
   const { data: schedules = [] } = useQuery({
     queryKey: ["/api/schedules"],
     queryFn: async () => {
@@ -143,10 +155,10 @@ export function ScheduleModal() {
   // Listen for global schedule modal toggle
   useEffect(() => {
     const handleToggleModal = () => setIsOpen(!isOpen);
-    
+
     // This would be called from other components
     (window as any).toggleScheduleModal = handleToggleModal;
-    
+
     return () => {
       delete (window as any).toggleScheduleModal;
     };
@@ -154,12 +166,12 @@ export function ScheduleModal() {
 
   const getScheduleGrid = () => {
     const grid: any = {};
-    
+
     schedules.forEach((schedule: any) => {
       const key = `${schedule.dayOfWeek}-${schedule.startTime}`;
       grid[key] = schedule;
     });
-    
+
     return grid;
   };
 
@@ -221,7 +233,7 @@ export function ScheduleModal() {
                   {daysOfWeek.map((day) => {
                     const scheduleKey = `${day.value}-${timeSlot.value}`;
                     const schedule = scheduleGrid[scheduleKey];
-                    
+
                     return (
                       <div
                         key={`${day.value}-${timeSlot.value}`}
@@ -345,12 +357,13 @@ export function ScheduleModal() {
                           <SelectValue placeholder="Select a course" />
                         </SelectTrigger>
                       </FormControl>
+                      
                       <SelectContent>
-                        {courses.map((course: any) => (
-                          <SelectItem key={course.id} value={course.id.toString()}>
-                            {course.code} - {course.name}
-                          </SelectItem>
-                        ))}
+                      {systemCourses?.map((course: any) => (
+                        <SelectItem key={course.id} value={course.id.toString()}>
+                          {course.code} - {course.name}
+                        </SelectItem>
+                      ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -431,7 +444,7 @@ export function ScheduleModal() {
                   )}
                 />
               </div>
-              
+
               {/* Building and Room Selection */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -474,7 +487,7 @@ export function ScheduleModal() {
                   )}
                 />
               </div>
-              
+
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setShowAddSchedule(false)}>
                   Cancel

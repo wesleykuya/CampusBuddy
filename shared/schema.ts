@@ -62,6 +62,18 @@ export const courses = pgTable("courses", {
   color: text("color").default("#2563EB"),
 });
 
+export const systemCourses = pgTable("system_courses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  department: text("department"),
+  credits: integer("credits"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").references(() => courses.id).notNull(),
@@ -136,6 +148,10 @@ export const remindersRelations = relations(reminders, ({ one }) => ({
   }),
 }));
 
+export const systemCoursesRelations = relations(systemCourses, ({ many }) => ({
+  courses: many(courses),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -166,6 +182,12 @@ export const insertReminderSchema = createInsertSchema(reminders).omit({
 });
 
 export const insertFloorSchema = createInsertSchema(floors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSystemCourseSchema = createInsertSchema(systemCourses).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -206,6 +228,8 @@ export type InsertReminder = z.infer<typeof insertReminderSchema>;
 export type Reminder = typeof reminders.$inferSelect;
 export type InsertFloor = z.infer<typeof insertFloorSchema>;
 export type Floor = typeof floors.$inferSelect;
+export type InsertSystemCourse = z.infer<typeof insertSystemCourseSchema>;
+export type SystemCourse = typeof systemCourses.$inferSelect;
 export type LoginCredentials = z.infer<typeof loginSchema>;
 
 // Extended types with relations

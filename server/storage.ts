@@ -1,5 +1,12 @@
 import { db } from "./db";
-import { users, buildings, rooms, courses, schedules, reminders, floors } from "@shared/schema";
+import { 
+  buildings, floors, users, courses, schedules, reminders, rooms, systemCourses,
+  type InsertBuilding, type InsertFloor, type InsertUser, 
+  type InsertCourse, type InsertSchedule, type InsertReminder,
+  type InsertRoom, type User, type Building, type Floor,
+  type Course, type Schedule, type Room, type InsertSystemCourse,
+  type SystemCourse
+} from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import type { 
@@ -55,6 +62,13 @@ export interface IStorage {
   createFloor(floor: InsertFloor): Promise<Floor>;
   updateFloor(id: number, floor: Partial<InsertFloor>): Promise<Floor | undefined>;
   deleteFloor(id: number): Promise<boolean>;
+
+    // System Courses
+  createSystemCourse(courseData: InsertSystemCourse): Promise<SystemCourse>;
+  getAllSystemCourses(): Promise<SystemCourse[]>;
+  getSystemCourse(id: number): Promise<SystemCourse | undefined>;
+  updateSystemCourse(id: number, courseData: Partial<InsertSystemCourse>): Promise<SystemCourse | undefined>;
+  deleteSystemCourse(id: number): Promise<SystemCourse | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -292,6 +306,34 @@ export class DatabaseStorage implements IStorage {
   async deleteFloor(id: number): Promise<boolean> {
     const result = await db.delete(floors).where(eq(floors.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // System Courses
+  async createSystemCourse(courseData: InsertSystemCourse): Promise<SystemCourse> {
+    const [course] = await db.insert(systemCourses).values(courseData).returning();
+    return course;
+  }
+
+  async getAllSystemCourses(): Promise<SystemCourse[]> {
+    return await db.select().from(systemCourses).where(eq(systemCourses.isActive, true)).orderBy(systemCourses.code);
+  }
+
+  async getSystemCourse(id: number): Promise<SystemCourse | undefined> {
+    const [course] = await db.select().from(systemCourses).where(eq(systemCourses.id, id));
+    return course || undefined;
+  }
+
+  async updateSystemCourse(id: number, courseData: Partial<InsertSystemCourse>): Promise<SystemCourse | undefined> {
+    const [course] = await db.update(systemCourses)
+      .set({ ...courseData, updatedAt: new Date() })
+      .where(eq(systemCourses.id, id))
+      .returning();
+    return course || undefined;
+  }
+
+  async deleteSystemCourse(id: number): Promise<SystemCourse | undefined> {
+    const [deleted] = await db.delete(systemCourses).where(eq(systemCourses.id, id)).returning();
+    return deleted;
   }
 }
 

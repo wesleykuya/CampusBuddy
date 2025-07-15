@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { registerAuthRoutes, authenticateToken, requireRole } from "./auth-routes";
 import { 
   insertCourseSchema, insertScheduleSchema, insertBuildingSchema, 
-  insertRoomSchema, insertFloorSchema
+  insertRoomSchema, insertFloorSchema, insertSystemCourseSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -251,6 +251,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(404).json({ message: "Schedule not found" });
       }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // System Courses routes (Admin only)
+  app.get("/api/admin/system-courses", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courses = await storage.getAllSystemCourses();
+      res.json(courses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/system-courses", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courseData = insertSystemCourseSchema.parse(req.body);
+      const course = await storage.createSystemCourse(courseData);
+      res.json(course);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/admin/system-courses/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      const courseData = insertSystemCourseSchema.partial().parse(req.body);
+      const course = await storage.updateSystemCourse(courseId, courseData);
+      
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      
+      res.json(course);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/system-courses/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      const deleted = await storage.deleteSystemCourse(courseId);
+      
+      if (deleted) {
+        res.json({ message: "Course deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Course not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Public route to get system courses for students
+  app.get("/api/system-courses", async (req, res) => {
+    try {
+      const courses = await storage.getAllSystemCourses();
+      res.json(courses);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

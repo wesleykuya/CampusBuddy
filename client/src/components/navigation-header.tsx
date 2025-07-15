@@ -53,6 +53,11 @@ export function NavigationHeader() {
               <a href="/reminders" className={getLinkClasses("/reminders")}>
                 Reminders
               </a>
+              {(user?.role === "admin" || user?.role === "super_admin") && (
+                <a href="/admin-portal" className={getLinkClasses("/admin-portal")}>
+                  Admin Portal
+                </a>
+              )}
             </div>
           </div>
 

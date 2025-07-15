@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus, Edit, Clock, MapPin, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
+import { NavigationHeader } from "@/components/navigation-header";
 
 interface Schedule {
   id: number;
@@ -160,7 +161,9 @@ export default function SchedulesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-slate-50">
+      <NavigationHeader />
+      <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">My Schedules</h1>
@@ -388,6 +391,7 @@ export default function SchedulesPage() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

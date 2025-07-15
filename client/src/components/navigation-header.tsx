@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -7,6 +8,7 @@ import { Bell, ChevronDown, MapPin } from "lucide-react";
 
 export function NavigationHeader() {
   const { user, logout } = useAuth();
+  const [location] = useLocation();
   const [notificationCount] = useState(3); // This would come from actual notifications
 
   const getInitials = (name: string) => {
@@ -15,6 +17,18 @@ export function NavigationHeader() {
       .map((n) => n[0])
       .join("")
       .toUpperCase();
+  };
+
+  const isActivePage = (path: string) => {
+    if (path === "/" && location === "/") return true;
+    if (path !== "/" && location.startsWith(path)) return true;
+    return false;
+  };
+
+  const getLinkClasses = (path: string) => {
+    return isActivePage(path)
+      ? "text-primary font-medium border-b-2 border-primary pb-1"
+      : "text-slate-600 hover:text-primary transition-colors";
   };
 
   return (
@@ -27,16 +41,16 @@ export function NavigationHeader() {
               <span className="text-xl font-bold text-slate-800">Campus Buddy</span>
             </div>
             <div className="hidden md:flex space-x-6 ml-8">
-              <a href="/" className="text-slate-600 hover:text-primary transition-colors">
+              <a href="/" className={getLinkClasses("/")}>
                 Home
               </a>
-              <a href="/navigation" className="text-primary font-medium border-b-2 border-primary pb-1">
+              <a href="/navigation" className={getLinkClasses("/navigation")}>
                 Navigation
               </a>
-              <a href="/schedules" className="text-slate-600 hover:text-primary transition-colors">
+              <a href="/schedules" className={getLinkClasses("/schedules")}>
                 Schedule
               </a>
-              <a href="/reminders" className="text-slate-600 hover:text-primary transition-colors">
+              <a href="/reminders" className={getLinkClasses("/reminders")}>
                 Reminders
               </a>
             </div>

@@ -80,10 +80,8 @@ export default function AdminPortal() {
   // Course mutations
   const createCourseMutation = useMutation({
     mutationFn: async (courseData: any) => {
-      return await apiRequest("/api/admin/system-courses", {
-        method: "POST",
-        body: JSON.stringify(courseData),
-      });
+      const response = await apiRequest("POST", "/api/admin/system-courses", courseData);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/system-courses"] });
@@ -104,10 +102,8 @@ export default function AdminPortal() {
 
   const updateCourseMutation = useMutation({
     mutationFn: async ({ id, ...courseData }: any) => {
-      return await apiRequest(`/api/admin/system-courses/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(courseData),
-      });
+      const response = await apiRequest("PUT", `/api/admin/system-courses/${id}`, courseData);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/system-courses"] });
@@ -129,9 +125,8 @@ export default function AdminPortal() {
 
   const deleteCourseMutation = useMutation({
     mutationFn: async (courseId: number) => {
-      return await apiRequest(`/api/admin/system-courses/${courseId}`, {
-        method: "DELETE",
-      });
+      const response = await apiRequest("DELETE", `/api/admin/system-courses/${courseId}`);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/system-courses"] });
@@ -152,10 +147,8 @@ export default function AdminPortal() {
   // Building mutations
   const createBuildingMutation = useMutation({
     mutationFn: async (buildingData: any) => {
-      return await apiRequest("/api/buildings", {
-        method: "POST",
-        body: JSON.stringify(buildingData),
-      });
+      const response = await apiRequest("POST", "/api/buildings", buildingData);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/buildings"] });
@@ -169,6 +162,50 @@ export default function AdminPortal() {
       toast({
         title: "Error",
         description: error.message || "Failed to create building",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateBuildingMutation = useMutation({
+    mutationFn: async ({ id, ...buildingData }: any) => {
+      const response = await apiRequest("PUT", `/api/buildings/${id}`, buildingData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buildings"] });
+      setIsEditBuildingDialogOpen(false);
+      setSelectedBuilding(null);
+      toast({
+        title: "Success",
+        description: "Building updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update building",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteBuildingMutation = useMutation({
+    mutationFn: async (buildingId: number) => {
+      const response = await apiRequest("DELETE", `/api/buildings/${buildingId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buildings"] });
+      toast({
+        title: "Success",
+        description: "Building deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete building",
         variant: "destructive",
       });
     },
@@ -219,6 +256,27 @@ export default function AdminPortal() {
       amenities,
     };
     createBuildingMutation.mutate(buildingData);
+  };
+
+  const handleUpdateBuilding = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedBuilding) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const amenitiesStr = formData.get("amenities") as string;
+    const amenities = amenitiesStr ? amenitiesStr.split(",").map(a => a.trim()).filter(Boolean) : [];
+    
+    const buildingData = {
+      id: selectedBuilding.id,
+      name: formData.get("name"),
+      code: formData.get("code"),
+      description: formData.get("description") || undefined,
+      latitude: formData.get("latitude"),
+      longitude: formData.get("longitude"),
+      type: formData.get("type"),
+      amenities,
+    };
+    updateBuildingMutation.mutate(buildingData);
   };
 
   if (coursesLoading || buildingsLoading) {
@@ -464,6 +522,26 @@ export default function AdminPortal() {
                           </div>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBuilding(building);
+                            setIsEditBuildingDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteBuildingMutation.mutate(building.id)}
+                          disabled={deleteBuildingMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -471,6 +549,104 @@ export default function AdminPortal() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Building Dialog */}
+        <Dialog open={isEditBuildingDialogOpen} onOpenChange={setIsEditBuildingDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Building</DialogTitle>
+              <DialogDescription>
+                Update building information.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedBuilding && (
+              <form onSubmit={handleUpdateBuilding} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-building-name">Building Name</Label>
+                    <Input 
+                      id="edit-building-name" 
+                      name="name" 
+                      defaultValue={selectedBuilding.name}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-building-code">Building Code</Label>
+                    <Input 
+                      id="edit-building-code" 
+                      name="code" 
+                      defaultValue={selectedBuilding.code}
+                      required 
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-building-description">Description</Label>
+                  <Textarea 
+                    id="edit-building-description" 
+                    name="description"
+                    defaultValue={selectedBuilding.description || ""}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-latitude">Latitude</Label>
+                    <Input 
+                      id="edit-latitude" 
+                      name="latitude"
+                      defaultValue={selectedBuilding.latitude}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-longitude">Longitude</Label>
+                    <Input 
+                      id="edit-longitude" 
+                      name="longitude"
+                      defaultValue={selectedBuilding.longitude}
+                      required 
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-building-type">Type</Label>
+                    <Input 
+                      id="edit-building-type" 
+                      name="type"
+                      defaultValue={selectedBuilding.type}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-amenities">Amenities</Label>
+                    <Input 
+                      id="edit-amenities" 
+                      name="amenities"
+                      defaultValue={selectedBuilding.amenities ? selectedBuilding.amenities.join(", ") : ""}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsEditBuildingDialogOpen(false);
+                      setSelectedBuilding(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={updateBuildingMutation.isPending}>
+                    Update Building
+                  </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Edit Course Dialog */}
         <Dialog open={isEditCourseDialogOpen} onOpenChange={setIsEditCourseDialogOpen}>

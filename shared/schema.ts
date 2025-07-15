@@ -29,6 +29,8 @@ export const buildings = pgTable("buildings", {
   type: text("type").notNull(), // 'academic', 'amenity', 'dormitory'
   amenities: jsonb("amenities").default([]),
   isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const floors = pgTable("floors", {

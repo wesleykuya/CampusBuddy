@@ -75,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Check if user is admin
       const user = await storage.getUser(req.user.id);
-      if (!user?.isAdmin) {
+      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
@@ -91,18 +91,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Check if user is admin
       const user = await storage.getUser(req.user.id);
-      if (!user?.isAdmin) {
+      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
       const floorId = parseInt(req.params.id);
       const floorData = insertFloorSchema.partial().parse(req.body);
       const floor = await storage.updateFloor(floorId, floorData);
-      
+
       if (!floor) {
         return res.status(404).json({ message: "Floor not found" });
       }
-      
+
       res.json(floor);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -113,13 +113,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Check if user is admin
       const user = await storage.getUser(req.user.id);
-      if (!user?.isAdmin) {
+      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
       const floorId = parseInt(req.params.id);
       const deleted = await storage.deleteFloor(floorId);
-      
+
       if (deleted) {
         res.json({ message: "Floor deleted successfully" });
       } else {
@@ -157,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const courseId = parseInt(req.params.id);
       const courseData = insertCourseSchema.partial().parse(req.body);
-      
+
       // Verify course belongs to user
       const existingCourse = await storage.getCourse(courseId);
       if (!existingCourse || existingCourse.userId !== req.user.id) {
@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/courses/:id", authenticateToken, async (req, res) => {
     try {
       const courseId = parseInt(req.params.id);
-      
+
       // Verify course belongs to user
       const existingCourse = await storage.getCourse(courseId);
       if (!existingCourse || existingCourse.userId !== req.user.id) {
@@ -215,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/schedules", authenticateToken, async (req, res) => {
     try {
       const scheduleData = insertScheduleSchema.parse(req.body);
-      
+
       // Verify course belongs to user
       const course = await storage.getCourse(scheduleData.courseId);
       if (!course || course.userId !== req.user.id) {
@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scheduleId = parseInt(req.params.id);
       const scheduleData = insertScheduleSchema.partial().parse(req.body);
-      
+
       const schedule = await storage.updateSchedule(scheduleId, scheduleData);
       res.json(schedule);
     } catch (error: any) {
@@ -245,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scheduleId = parseInt(req.params.id);
       const deleted = await storage.deleteSchedule(scheduleId);
-      
+
       if (deleted) {
         res.json({ message: "Schedule deleted successfully" });
       } else {
@@ -281,11 +281,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const courseId = parseInt(req.params.id);
       const courseData = insertSystemCourseSchema.partial().parse(req.body);
       const course = await storage.updateSystemCourse(courseId, courseData);
-      
+
       if (!course) {
         return res.status(404).json({ message: "Course not found" });
       }
-      
+
       res.json(course);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -296,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const courseId = parseInt(req.params.id);
       const deleted = await storage.deleteSystemCourse(courseId);
-      
+
       if (deleted) {
         res.json({ message: "Course deleted successfully" });
       } else {
@@ -322,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const floorId = parseInt(req.params.id);
       const { startNode, endNode } = req.body;
-      
+
       const floor = await storage.getFloor(floorId);
       if (!floor) {
         return res.status(404).json({ message: "Floor not found" });
@@ -331,11 +331,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { createPathfindingService } = await import("./pathfinding");
       const pathfinder = createPathfindingService(floor);
       const result = pathfinder.findPath(startNode, endNode);
-      
+
       if (!result) {
         return res.status(404).json({ message: "No path found" });
       }
-      
+
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

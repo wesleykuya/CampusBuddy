@@ -49,6 +49,7 @@ export interface IStorage {
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
   updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule | undefined>;
   deleteSchedule(id: number): Promise<boolean>;
+  getScheduleWithDetails(id: number): Promise<ScheduleWithDetails | undefined>;
 
   // Reminder methods
   getRemindersByUser(userId: number): Promise<Reminder[]>;
@@ -279,6 +280,21 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async getScheduleWithDetails(id: number): Promise<ScheduleWithDetails | undefined> {
+    const schedule = await db.query.schedules.findFirst({
+      where: eq(schedules.id, id),
+      with: {
+        course: true,
+        room: {
+          with: {
+            building: true
+          }
+        }
+      }
+    });
+    return schedule as ScheduleWithDetails | undefined;
+  }
+
   async getRemindersByUser(userId: number): Promise<Reminder[]> {
     return await db.select().from(reminders).where(eq(reminders.userId, userId));
   }
@@ -344,11 +360,6 @@ export class DatabaseStorage implements IStorage {
   async getSystemCourse(id: number): Promise<SystemCourse | undefined> {
     const [course] = await db.select().from(systemCourses).where(eq(systemCourses.id, id));
     return course || undefined;
-  }
-
-  async getSystemCourse(id: number): Promise<SystemCourse | null> {
-    const result = await this.db.select().from(systemCourses).where(eq(systemCourses.id, id)).limit(1);
-    return result[0] || null;
   }
 
   async updateSystemCourse(id: number, courseData: Partial<InsertSystemCourse>): Promise<SystemCourse | undefined> {

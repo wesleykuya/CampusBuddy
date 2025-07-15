@@ -73,6 +73,13 @@ export default function SchedulesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
       setIsCreateDialogOpen(false);
+      setShowOtherCourse(false);
+      setNewCourseData({
+        name: "",
+        code: "",
+        instructor: "",
+        color: "#000000",
+      });
       toast({
         title: "Success",
         description: "Schedule created successfully",
@@ -129,22 +136,32 @@ export default function SchedulesPage() {
     },
   });
 
-  const handleCreateSchedule = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateSchedule = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     let courseId = parseInt(formData.get("courseId") as string);
 
     if (showOtherCourse) {
-      // Handle creation of a new course
-      // **Backend Implementation Needed:** You'll need an API endpoint to create courses
-      // For now, let's just prevent the schedule creation and show an error.
-
-      toast({
-        title: "Error",
-        description: "Creating new courses is not yet supported. Backend implementation required.",
-        variant: "destructive",
-      });
-      return;
+      // First create the new course
+      try {
+        const newCourseResponse = await apiRequest("POST", "/api/courses", newCourseData);
+        courseId = newCourseResponse.id;
+        
+        // Refresh courses data
+        queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+        
+        toast({
+          title: "Success",
+          description: "New course created successfully",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create course",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     const scheduleData = {

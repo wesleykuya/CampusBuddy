@@ -268,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scheduleData = insertScheduleSchema.parse(req.body);
 
-      // Verify course belongs to user (check both personal courses and system courses)
+      // Verify course exists (check both personal courses and system courses)
       const personalCourse = await storage.getCourse(scheduleData.courseId);
       const systemCourse = await storage.getSystemCourse(scheduleData.courseId);
       
@@ -282,7 +282,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const schedule = await storage.createSchedule(scheduleData);
-      res.json(schedule);
+      
+      // Fetch the complete schedule with course and room details
+      const completeSchedule = await storage.getScheduleWithDetails(schedule.id);
+      res.json(completeSchedule);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

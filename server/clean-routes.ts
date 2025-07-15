@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { registerAuthRoutes, authenticateToken, requireRole } from "./auth-routes";
 import { 
   insertCourseSchema, insertScheduleSchema, insertBuildingSchema, 
-  insertRoomSchema, insertFloorSchema
+  insertRoomSchema, insertFloorSchema, insertSystemCourseSchema
 } from "@shared/schema";
 import { createPathfindingService } from "./pathfinding";
 
@@ -352,6 +352,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Change password error:", error);
       res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
+  // Admin routes for system courses
+  app.get("/api/admin/system-courses", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courses = await storage.getAllSystemCourses();
+      res.json(courses);
+    } catch (error: any) {
+      console.error("Get system courses error:", error);
+      res.status(500).json({ message: "Failed to get system courses" });
+    }
+  });
+
+  app.post("/api/admin/system-courses", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courseData = insertSystemCourseSchema.parse(req.body);
+      const course = await storage.createSystemCourse(courseData);
+      res.status(201).json(course);
+    } catch (error: any) {
+      console.error("Create system course error:", error);
+      res.status(500).json({ message: "Failed to create system course" });
+    }
+  });
+
+  app.put("/api/admin/system-courses/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      const courseData = insertSystemCourseSchema.partial().parse(req.body);
+      const course = await storage.updateSystemCourse(courseId, courseData);
+      
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      
+      res.json(course);
+    } catch (error: any) {
+      console.error("Update system course error:", error);
+      res.status(500).json({ message: "Failed to update system course" });
+    }
+  });
+
+  app.delete("/api/admin/system-courses/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      const deleted = await storage.deleteSystemCourse(courseId);
+      
+      if (deleted) {
+        res.json({ message: "Course deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Course not found" });
+      }
+    } catch (error: any) {
+      console.error("Delete system course error:", error);
+      res.status(500).json({ message: "Failed to delete system course" });
+    }
+  });
+
+  // Admin user management routes (Super Admin only)
+  app.get("/api/admin/users", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error: any) {
+      console.error("Get users error:", error);
+      res.status(500).json({ message: "Failed to get users" });
+    }
+  });
+
+  app.put("/api/admin/users/:id", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const userData = req.body;
+      
+      const updatedUser = await storage.updateUser(userId, userData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const success = await storage.deleteUser(userId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json({ message: "User deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete user error:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Public route for students to get system courses
+  app.get("/api/system-courses", async (req, res) => {
+    try {
+      const courses = await storage.getAllSystemCourses();
+      res.json(courses);
+    } catch (error: any) {
+      console.error("Get system courses error:", error);
+      res.status(500).json({ message: "Failed to get system courses" });
     }
   });
 

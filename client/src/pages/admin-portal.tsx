@@ -88,11 +88,19 @@ export default function AdminPortal() {
     queryKey: ["/api/admin/system-courses"],
     queryFn: async () => {
       const response = await fetch("/api/admin/system-courses", {
-        headers: getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders(),
+          'Accept': 'application/json',
+        },
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to fetch system courses");
-      return response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('System courses API error:', response.status, errorText);
+        throw new Error(`Failed to fetch system courses: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
     },
   });
 
@@ -101,11 +109,19 @@ export default function AdminPortal() {
     queryKey: ["/api/buildings"],
     queryFn: async () => {
       const response = await fetch("/api/buildings", {
-        headers: getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders(),
+          'Accept': 'application/json',
+        },
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to fetch buildings");
-      return response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Buildings API error:', response.status, errorText);
+        throw new Error(`Failed to fetch buildings: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
     },
   });
 
@@ -114,11 +130,19 @@ export default function AdminPortal() {
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
       const response = await fetch("/api/admin/users", {
-        headers: getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders(),
+          'Accept': 'application/json',
+        },
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to fetch users");
-      return response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Users API error:', response.status, errorText);
+        throw new Error(`Failed to fetch users: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
     },
     enabled: user?.role === 'super_admin',
   });

@@ -359,6 +359,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin route to get system courses (with more details)
+  app.get("/api/admin/system-courses", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const courses = await storage.getAllSystemCourses();
+      res.json(courses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Public route to get system courses for students
   app.get("/api/system-courses", async (req, res) => {
     try {

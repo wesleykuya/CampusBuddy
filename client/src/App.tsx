@@ -13,7 +13,7 @@ import SchedulesPage from "@/pages/schedules";
 import RemindersPage from "@/pages/reminders";
 import ProfilePage from "@/pages/profile";
 import EnhancedNavigation from "@/pages/enhanced-navigation";
-import { lazy } from "react";
+import AdminDashboard from "./pages/admin-dashboard";
 
 function Router() {
   const { user, isLoading } = useAuth();
@@ -47,7 +47,7 @@ function Router() {
       {user.role === "super_admin" && (
         <Route path="/super-admin" component={SuperAdminPortal} />
       )}
-      <Route path="/admin-portal" component={lazy(() => import("./pages/admin-portal"))} />
+      <Route path="/admin-portal" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );

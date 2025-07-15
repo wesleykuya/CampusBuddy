@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -64,9 +63,9 @@ export default function AdminPortal() {
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const { user } = useAuth();
-  
+
   // Check if user has admin access
   if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
     return (
@@ -274,7 +273,7 @@ export default function AdminPortal() {
   const handleUpdateCourse = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedCourse) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const courseData = {
       id: selectedCourse.id,
@@ -292,7 +291,7 @@ export default function AdminPortal() {
     const formData = new FormData(e.currentTarget);
     const amenitiesStr = formData.get("amenities") as string;
     const amenities = amenitiesStr ? amenitiesStr.split(",").map(a => a.trim()).filter(Boolean) : [];
-    
+
     const buildingData = {
       name: formData.get("name") as string,
       code: formData.get("code") as string,
@@ -308,11 +307,11 @@ export default function AdminPortal() {
   const handleUpdateBuilding = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedBuilding) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const amenitiesStr = formData.get("amenities") as string;
     const amenities = amenitiesStr ? amenitiesStr.split(",").map(a => a.trim()).filter(Boolean) : [];
-    
+
     const buildingData = {
       id: selectedBuilding.id,
       name: formData.get("name") as string,
@@ -441,6 +440,7 @@ export default function AdminPortal() {
                       </form>
                     </DialogContent>
                   </Dialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -588,6 +588,7 @@ export default function AdminPortal() {
                       </form>
                     </DialogContent>
                   </Dialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

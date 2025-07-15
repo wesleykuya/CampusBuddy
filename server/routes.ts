@@ -6,8 +6,34 @@ import {
   insertCourseSchema, insertScheduleSchema, insertBuildingSchema, 
   insertRoomSchema, insertFloorSchema, insertSystemCourseSchema
 } from "@shared/schema";
+import multer from "multer";
+import { parseCoursesFromFile } from "./file-parser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure multer for file uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv'
+      ];
+      
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only PDF, Word, Excel, and CSV files are allowed.'));
+      }
+    },
+  });
+
   // Register authentication routes
   registerAuthRoutes(app);
 
@@ -308,6 +334,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(courses);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Course import route (Admin only)
+  app.post("/api/admin/import-courses", authenticateToken, requireRole(["admin", "super_admin"]), upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const courses = await parseCoursesFromFile(req.file);
+      
+      if (courses.length === 0) {
+        return res.status(400).json({ message: "No valid courses found in the file" });
+      }
+
+      // Save courses to database
+      const savedCourses = [];
+      for (const courseData of courses) {
+        try {
+          const validatedCourse = insertSystemCourseSchema.parse(courseData);
+          const savedCourse = await storage.createSystemCourse(validatedCourse);
+          savedCourses.push(savedCourse);
+        } catch (error) {
+          console.warn(`Skipping invalid course: ${JSON.stringify(courseData)}`);
+        }
+      }
+
+      res.json({
+        message: `Successfully imported ${savedCourses.length} courses`,
+        count: savedCourses.length,
+        courses: savedCourses
+      });
+    } catch (error: any) {
+      console.error("Course import error:", error);
+      res.status(500).json({ message: error.message || "Failed to import courses" });
     }
   });
 

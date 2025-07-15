@@ -307,22 +307,12 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async createBuilding(buildingData: InsertBuilding): Promise<Building> {
-    const [newBuilding] = await db.insert(buildings).values(buildingData).returning();
-    return newBuilding;
-  }
-
-  async updateBuilding(buildingId: number, buildingData: Partial<InsertBuilding>): Promise<Building | undefined> {
+  async deleteBuilding(buildingId: number): Promise<boolean> {
     const [updated] = await db.update(buildings)
-      .set(buildingData)
+      .set({ isActive: false, updatedAt: new Date() })
       .where(eq(buildings.id, buildingId))
       .returning();
-    return updated || undefined;
-  }
-
-  async deleteBuilding(buildingId: number): Promise<boolean> {
-    const result = await db.delete(buildings).where(eq(buildings.id, buildingId));
-    return (result.rowCount ?? 0) > 0;
+    return !!updated;
   }
 
   // System Courses

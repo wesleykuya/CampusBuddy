@@ -21,14 +21,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/buildings", authenticateToken, async (req, res) => {
+  app.post("/api/buildings", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
     try {
-      // Check if user is admin
-      const user = await storage.getUser(req.user.id);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
       const buildingData = insertBuildingSchema.parse(req.body);
       const building = await storage.createBuilding(buildingData);
       res.json(building);
@@ -312,6 +306,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const courses = await storage.getAllSystemCourses();
       res.json(courses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin user management routes (Super Admin only)
+  app.get("/api/admin/users", authenticateToken, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Buildings CRUD operations
+  app.put("/api/buildings/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const buildingId = parseInt(req.params.id);
+      const buildingData = insertBuildingSchema.partial().parse(req.body);
+      const building = await storage.updateBuilding(buildingId, buildingData);
+
+      if (!building) {
+        return res.status(404).json({ message: "Building not found" });
+      }
+
+      res.json(building);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/buildings/:id", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
+    try {
+      const buildingId = parseInt(req.params.id);
+      const deleted = await storage.deleteBuilding(buildingId);
+
+      if (deleted) {
+        res.json({ message: "Building deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Building not found" });
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -146,10 +146,10 @@ export default function SchedulesPage() {
       try {
         const newCourseResponse = await apiRequest("POST", "/api/courses", newCourseData);
         courseId = newCourseResponse.id;
-        
+
         // Refresh courses data
         queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-        
+
         toast({
           title: "Success",
           description: "New course created successfully",
@@ -199,6 +199,15 @@ export default function SchedulesPage() {
       </div>
     );
   }
+
+  // Get available courses (both personal and system)
+  const { data: availableCourses = [] } = useQuery({
+    queryKey: ["courses"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/courses");
+      return response.json();
+    },
+  });
 
   return (
     <div className="min-h-screen bg-slate-50">

@@ -1,18 +1,14 @@
 import { db } from "./db";
 import { 
-  users, courses, schedules, reminders, buildings, rooms, floors, systemCourses
+  users, courses, schedules, reminders, buildings, rooms, floors
 } from "@shared/schema";
 import type { 
   InsertUser, InsertCourse, InsertSchedule, InsertBuilding, InsertRoom, InsertFloor, InsertSystemCourse,
   User, Course, Schedule, Building, Room, Floor, SystemCourse, CourseWithSchedules, ScheduleWithDetails
 } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
-import type { 
-  User, InsertUser, Building, InsertBuilding, Room, InsertRoom,
-  Course, InsertCourse, CourseWithSchedules, Schedule, InsertSchedule, 
-  ScheduleWithDetails, Reminder, InsertReminder, Floor, InsertFloor
-} from "@shared/schema";
+
 
 export interface IStorage {
   // User methods
@@ -189,8 +185,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCoursesByUser(userId: number): Promise<CourseWithSchedules[]> {
-    const userCourses = await db.query.courses.findMany({
-      where: eq(courses.userId, userId),
+    const allCourses = await db.query.courses.findMany({
+      where: and(
+        eq(courses.isActive, true),
+        // Get both user's personal courses and all system courses
+        or(eq(courses.userId, userId), eq(courses.isSystemCourse, true))
+      ),
       with: {
         schedules: {
           with: {
@@ -203,7 +203,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
     });
-    return userCourses as CourseWithSchedules[];
+    return allCourses as CourseWithSchedules[];
   }
 
   async getCourse(id: number): Promise<Course | undefined> {
@@ -304,14 +304,13 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(schedules)
       .leftJoin(courses, eq(schedules.courseId, courses.id))
-      .leftJoin(systemCourses, eq(schedules.courseId, systemCourses.id))
       .leftJoin(rooms, eq(schedules.roomId, rooms.id))
       .leftJoin(buildings, eq(rooms.buildingId, buildings.id))
       .orderBy(schedules.dayOfWeek, schedules.startTime);
 
     return result.map(row => ({
       ...row.schedules,
-      course: row.courses || row.system_courses,
+      course: row.courses,
       room: row.rooms ? {
         ...row.rooms,
         building: row.buildings
@@ -386,29 +385,39 @@ export class DatabaseStorage implements IStorage {
 
   // System Courses
   async createSystemCourse(courseData: InsertSystemCourse): Promise<SystemCourse> {
-    const [course] = await db.insert(systemCourses).values(courseData).returning();
+    const [course] = await db.insert(courses).values({
+      ...courseData,
+      isSystemCourse: true,
+      userId: null // System courses don't belong to a specific user
+    }).returning();
     return course;
   }
 
   async getAllSystemCourses(): Promise<SystemCourse[]> {
-    return await db.select().from(systemCourses).where(eq(systemCourses.isActive, true)).orderBy(systemCourses.code);
+    return await db.select().from(courses).where(
+      and(eq(courses.isSystemCourse, true), eq(courses.isActive, true))
+    ).orderBy(courses.code);
   }
 
   async getSystemCourse(id: number): Promise<SystemCourse | undefined> {
-    const [course] = await db.select().from(systemCourses).where(eq(systemCourses.id, id));
+    const [course] = await db.select().from(courses).where(
+      and(eq(courses.id, id), eq(courses.isSystemCourse, true))
+    );
     return course || undefined;
   }
 
   async updateSystemCourse(id: number, courseData: Partial<InsertSystemCourse>): Promise<SystemCourse | undefined> {
-    const [course] = await db.update(systemCourses)
+    const [course] = await db.update(courses)
       .set({ ...courseData, updatedAt: new Date() })
-      .where(eq(systemCourses.id, id))
+      .where(and(eq(courses.id, id), eq(courses.isSystemCourse, true)))
       .returning();
     return course || undefined;
   }
 
   async deleteSystemCourse(id: number): Promise<SystemCourse | undefined> {
-    const [deleted] = await db.delete(systemCourses).where(eq(systemCourses.id, id)).returning();
+    const [deleted] = await db.delete(courses).where(
+      and(eq(courses.id, id), eq(courses.isSystemCourse, true))
+    ).returning();
     return deleted;
   }
 }

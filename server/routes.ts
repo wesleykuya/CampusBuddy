@@ -268,16 +268,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scheduleData = insertScheduleSchema.parse(req.body);
 
-      // Verify course exists (check both personal courses and system courses)
-      const personalCourse = await storage.getCourse(scheduleData.courseId);
-      const systemCourse = await storage.getSystemCourse(scheduleData.courseId);
+      // Verify course exists
+      const course = await storage.getCourse(scheduleData.courseId);
       
-      if (!personalCourse && !systemCourse) {
+      if (!course) {
         return res.status(404).json({ message: "Course not found" });
       }
       
       // If it's a personal course, verify it belongs to the user
-      if (personalCourse && personalCourse.userId !== req.user.id) {
+      if (!course.isSystemCourse && course.userId !== req.user.id) {
         return res.status(403).json({ message: "Invalid course" });
       }
 
@@ -369,15 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin route to get system courses (with more details)
-  app.get("/api/admin/system-courses", authenticateToken, requireRole(["admin", "super_admin"]), async (req, res) => {
-    try {
-      const courses = await storage.getAllSystemCourses();
-      res.json(courses);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
+  
 
   // Public route to get system courses for students
   app.get("/api/system-courses", async (req, res) => {

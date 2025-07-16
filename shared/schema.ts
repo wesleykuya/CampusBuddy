@@ -57,20 +57,15 @@ export const rooms = pgTable("rooms", {
 
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id),
   name: text("name").notNull(),
   code: text("code").notNull(),
   instructor: text("instructor"),
   color: text("color").default("#2563EB"),
-});
-
-export const systemCourses = pgTable("system_courses", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  code: text("code").notNull().unique(),
   description: text("description"),
   department: text("department"),
   credits: integer("credits"),
+  isSystemCourse: boolean("is_system_course").default(false),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -150,9 +145,7 @@ export const remindersRelations = relations(reminders, ({ one }) => ({
   }),
 }));
 
-export const systemCoursesRelations = relations(systemCourses, ({ many }) => ({
-  courses: many(courses),
-}));
+
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -189,10 +182,12 @@ export const insertFloorSchema = createInsertSchema(floors).omit({
   updatedAt: true,
 });
 
-export const insertSystemCourseSchema = createInsertSchema(systemCourses).omit({
+export const insertSystemCourseSchema = createInsertSchema(courses).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  isSystemCourse: z.boolean().default(true),
 });
 
 // Login schema
@@ -231,7 +226,7 @@ export type Reminder = typeof reminders.$inferSelect;
 export type InsertFloor = z.infer<typeof insertFloorSchema>;
 export type Floor = typeof floors.$inferSelect;
 export type InsertSystemCourse = z.infer<typeof insertSystemCourseSchema>;
-export type SystemCourse = typeof systemCourses.$inferSelect;
+export type SystemCourse = Course;
 export type LoginCredentials = z.infer<typeof loginSchema>;
 
 // Extended types with relations

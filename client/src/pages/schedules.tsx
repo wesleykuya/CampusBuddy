@@ -200,14 +200,7 @@ export default function SchedulesPage() {
     );
   }
 
-  // Get available courses (both personal and system)
-  const { data: availableCourses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/courses");
-      return response.json();
-    },
-  });
+  
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -415,8 +408,8 @@ export default function SchedulesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {courses?.map((course: any) => (
-                      <SelectItem key={`personal-${course.id}`} value={course.id.toString()}>
-                        {course.code} - {course.name} (Personal)
+                      <SelectItem key={course.id} value={course.id.toString()}>
+                        {course.code} - {course.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

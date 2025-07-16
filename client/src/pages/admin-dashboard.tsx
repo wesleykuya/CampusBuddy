@@ -38,223 +38,6 @@ interface SystemCourse {
   updatedAt: string;
 }
 
-export default function AdminDashboard() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [courseDialogOpen, setCourseDialogOpen] = useState(false);
-  const [editingCourse, setEditingCourse] = useState<SystemCourse | null>(null);
-  const [courseForm, setCourseForm] = useState({
-    name: "",
-    code: "",
-    description: "",
-    department: "",
-    credits: "",
-    instructor: ""
-  });
-
-  // Fetch system courses
-  const { data: systemCourses = [], isLoading: coursesLoading } = useQuery({
-    queryKey: ["/api/admin/system-courses"],
-    queryFn: async () => {
-      const response = await fetch("/api/admin/system-courses", {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch system courses");
-      }
-      return response.json();
-    },
-  });
-
-  // Fetch buildings
-  const { data: buildings = [], isLoading: buildingsLoading } = useQuery({
-    queryKey: ["/api/buildings"],
-    queryFn: async () => {
-      const response = await fetch("/api/buildings");
-      if (!response.ok) {
-        throw new Error("Failed to fetch buildings");
-      }
-      return response.json();
-    },
-  });
-
-  // Create system course mutation
-  const createCourseMutation = useMutation({
-    mutationFn: async (courseData: any) => {
-      const response = await fetch("/api/admin/system-courses", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(courseData),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to create course");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/system-courses"] });
-      setCourseDialogOpen(false);
-      resetCourseForm();
-      toast({
-        title: "Success",
-        description: "Course created successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create course",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update system course mutation
-  const updateCourseMutation = useMutation({
-    mutationFn: async ({ id, ...courseData }: any) => {
-      const response = await fetch(`/api/admin/system-courses/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(courseData),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to update course");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/system-courses"] });
-      setCourseDialogOpen(false);
-      setEditingCourse(null);
-      resetCourseForm();
-      toast({
-        title: "Success",
-        description: "Course updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update course",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete system course mutation
-  const deleteCourseMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await fetch(`/api/admin/system-courses/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete course");
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/system-courses"] });
-      toast({
-        title: "Success",
-        description: "Course deleted successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete course",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const resetCourseForm = () => {
-    setCourseForm({
-      name: "",
-      code: "",
-      description: "",
-      department: "",
-      credits: "",
-      instructor: ""
-    });
-  };
-
-  const handleCourseSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const courseData = {
-      name: courseForm.name,
-      code: courseForm.code,
-      description: courseForm.description || undefined,
-      department: courseForm.department || undefined,
-      credits: courseForm.credits ? parseInt(courseForm.credits) : undefined,
-      instructor: courseForm.instructor || undefined,
-      isSystemCourse: true,
-    };
-
-    if (editingCourse) {
-      updateCourseMutation.mutate({ id: editingCourse.id, ...courseData });
-    } else {
-      createCourseMutation.mutate(courseData);
-    }
-  };
-
-  const handleEditCourse = (course: SystemCourse) => {
-    setEditingCourse(course);
-    setCourseForm({
-      name: course.name,
-      code: course.code,
-      description: course.description || "",
-      department: course.department || "",
-      credits: course.credits?.toString() || "",
-      instructor: course.instructor || ""
-    });
-    setCourseDialogOpen(true);
-  };
-
-  const handleDeleteCourse = (id: number) => {
-    if (confirm("Are you sure you want to delete this course?")) {
-      deleteCourseMutation.mutate(id);
-    }
-  };
-
-  if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <NavigationHeader />
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-            <p className="text-gray-600">You don't have permission to access this page.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <NavigationHeader />
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage campus resources and system settings</p>
-        </div>
-
-        <Tabs defaultValue="courses" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="courses">System Courses</TabsTrigger>
-            <TabsTrigger value="buildings">Buildings</TabsTrigger>
-            <TabsTrigger value="users">User Management</TabsTrigger>
-          </TabsList>
-
 interface Building {
   id: number;
   name: string;
@@ -633,7 +416,7 @@ export default function AdminDashboard() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <GraduationCap className="w-5 h-5" />
-                      System Courses ({systemCourses.length})
+                      System Courses ({courses.length})
                     </CardTitle>
                     <CardDescription>
                       Manage courses available for student enrollment
@@ -641,10 +424,7 @@ export default function AdminDashboard() {
                   </div>
                   <Dialog open={courseDialogOpen} onOpenChange={setCourseDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => {
-                        setEditingCourse(null);
-                        resetCourseForm();
-                      }}>
+                      <Button onClick={() => setEditingCourse(null)}>
                         <Plus className="w-4 h-4 mr-2" />
                         Add Course
                       </Button>
@@ -658,92 +438,6 @@ export default function AdminDashboard() {
                           {editingCourse ? 'Update course information' : 'Add a new course that students can select'}
                         </DialogDescription>
                       </DialogHeader>
-                      <form onSubmit={handleCourseSubmit} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="code">Course Code</Label>
-                            <Input
-                              id="code"
-                              value={courseForm.code}
-                              onChange={(e) => setCourseForm({ ...courseForm, code: e.target.value })}
-                              placeholder="CS101"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="department">Department</Label>
-                            <Input
-                              id="department"
-                              value={courseForm.department}
-                              onChange={(e) => setCourseForm({ ...courseForm, department: e.target.value })}
-                              placeholder="Computer Science"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Course Name</Label>
-                          <Input
-                            id="name"
-                            value={courseForm.name}
-                            onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })}
-                            placeholder="Introduction to Programming"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="instructor">Instructor</Label>
-                          <Input
-                            id="instructor"
-                            value={courseForm.instructor}
-                            onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
-                            placeholder="Dr. Smith"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="credits">Credits</Label>
-                            <Input
-                              id="credits"
-                              type="number"
-                              value={courseForm.credits}
-                              onChange={(e) => setCourseForm({ ...courseForm, credits: e.target.value })}
-                              placeholder="3"
-                              min="1"
-                              max="6"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea
-                            id="description"
-                            value={courseForm.description}
-                            onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
-                            placeholder="Course description..."
-                            rows={3}
-                          />
-                        </div>
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setCourseDialogOpen(false);
-                              setEditingCourse(null);
-                              resetCourseForm();
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            disabled={createCourseMutation.isPending || updateCourseMutation.isPending}
-                          >
-                            {editingCourse ? 'Update' : 'Create'} Course
-                          </Button>
-                        </div>
-                      </form></DialogContent>
-                  </Dialog>
                       <form onSubmit={handleCourseSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -812,18 +506,11 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                {coursesLoading ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Loading courses...</p>
-                  </div>
-                ) : systemCourses.length === 0 ? (
+                {courses.length === 0 ? (
                   <div className="text-center py-8">
                     <GraduationCap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500 mb-4">No system courses found</p>
-                    <Button onClick={() => {
-                      resetCourseForm();
-                      setCourseDialogOpen(true);
-                    }}>
+                    <Button onClick={() => setCourseDialogOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Add First Course
                     </Button>
@@ -836,49 +523,13 @@ export default function AdminDashboard() {
                         <TableHead>Name</TableHead>
                         <TableHead>Department</TableHead>
                         <TableHead>Credits</TableHead>
-                        <TableHead>Instructor</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {systemCourses.map((course: SystemCourse) => (
+                      {courses.map((course: SystemCourse) => (
                         <TableRow key={course.id}>
-                          <TableCell className="font-medium">{course.code}</TableCell>
-                          <TableCell>{course.name}</TableCell>
-                          <TableCell>{course.department || "N/A"}</TableCell>
-                          <TableCell>{course.credits || "N/A"}</TableCell>
-                          <TableCell>{course.instructor || "N/A"}</TableCell>
-                          <TableCell>
-                            <Badge variant={course.isActive ? "default" : "secondary"}>
-                              {course.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditCourse(course)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteCourse(course.id)}
-                                disabled={deleteCourseMutation.isPending}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
                           <TableCell className="font-medium">{course.code}</TableCell>
                           <TableCell>{course.name}</TableCell>
                           <TableCell>{course.department || 'Not specified'}</TableCell>
